@@ -38,4 +38,7 @@ future NOVA tool must enforce access on the server.
 - Each new module must supply a `ResourceContext` for record-level checks and filter list
   queries by the principal's scopes.
 - NOVA tools (Phase 6) reuse the same principal and policy; the model never gets a bypass.
-- Role editing UI and API (create/update roles) are part of Phase 1 Core user management.
+- Custom roles (Phase 1 Core) follow the same rule: an editor can only create or change a
+  role if they hold, company-wide, every permission the role holds before and after the edit.
+- Product and department scopes are now validated (`app/modules/scopes.py`); project scope
+  remains unavailable until the projects module exists.

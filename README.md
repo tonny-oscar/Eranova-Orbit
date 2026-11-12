@@ -11,19 +11,21 @@ The authoritative requirements are in [`docs/requirements/`](docs/requirements/)
 - [Master engineering brief](docs/requirements/ERANOVA_ORBIT_MASTER_PROMPT.md)
 - [Technical architecture](docs/requirements/ERANOVA_ORBIT_TECHNICAL_ARCHITECTURE.md)
 
-## Current status: Phase 1 — Foundation
+## Current status: Phase 1 — Foundation and Core Orbit
 
 | Area | Delivered |
 | --- | --- |
 | Backend | FastAPI modular monolith, async SQLAlchemy 2 + Alembic, structured JSON logs with correlation IDs, consistent error envelope, `/health` and `/ready` |
-| Identity | Email/password sign-in (Argon2id), server-side sessions in HttpOnly cookies, CSRF protection, idle + absolute expiry, login throttling, password change, operator password reset |
-| Authorization | Permission catalogue (`resource.action`), 13 customisable starter roles, scoped role assignments (company / department / product / project / own), privilege-escalation guard |
-| Audit | Append-only audit log (database trigger blocks UPDATE/DELETE/TRUNCATE) for sign-ins, denials and role changes |
-| Frontend | React 19 + Vite + Tailwind design system, sign-in, responsive collapsible command-centre shell, overview, settings, roles and audit-log views |
+| Identity | Email/password sign-in (Argon2id), server-side sessions in HttpOnly cookies, CSRF protection, idle + absolute expiry, login throttling, password change, administrator-issued temporary passwords with forced change |
+| Authorization | Permission catalogue (`resource.action`), 13 customisable starter roles plus custom roles, scoped assignments (company / department / product / own; project scope arrives with projects), privilege-escalation guards |
+| Product registry | Register and edit products, lifecycle status with history, team roster, product-scoped access, "awaiting confirmation" labelling for unverified details |
+| People | User administration (create, disable, reset), departments, minimal work profiles (department, title, manager, employment type, start date) |
+| Command centre | Live permission-scoped overview (products, people, accounts, recent activity) with source and timestamp, global search (Ctrl/⌘+K) |
+| Audit | Append-only audit log (database trigger blocks UPDATE/DELETE/TRUNCATE) for sign-ins, denials and every privileged change |
 | Delivery | Docker Compose PostgreSQL, CI workflow, Render blueprint, Vercel config, ADRs and operations docs |
 
-Products, CRM, projects and the other business modules arrive in later phases (see the
-phase list in the master brief). The navigation only shows modules that exist.
+CRM, projects, marketing, analytics, support, finance and NOVA arrive in later phases (see
+the phase list in the master brief). The navigation only shows modules that exist.
 
 ## Repository layout
 
@@ -139,8 +141,12 @@ npm run test:e2e
 | --- | --- |
 | `python -m app.cli bootstrap` | Ensure the company record, sync the permission catalogue and create starter roles (idempotent) |
 | `python -m app.cli create-superadmin` | Interactively create a Super Admin (prompts for password; nothing on the command line) |
-| `python -m app.cli reset-password` | Set a new password for a user and revoke all their sessions |
+| `python -m app.cli reset-password` | Set a temporary password for a user (they must change it) and revoke all their sessions |
 | `python -m app.cli purge-auth-records` | Apply retention to login attempts and expired sessions |
+| `python -m app.cli register-initial-products` | Register ShulePoa, HostPilot, OTPGuard, SitePoa and MenuPoa as unconfirmed drafts (names only, idempotent) |
+
+Day-to-day user administration (creating accounts, resetting passwords, assigning roles)
+is done in the app under **Administration → Users**.
 
 ## Documentation
 
