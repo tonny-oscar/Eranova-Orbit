@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/form-controls'
 import { Label } from '@/components/ui/input'
 import { ErrorState, LoadingState } from '@/components/ui/states'
 import { useMe, usePermissions } from '@/features/auth/hooks'
+import { useDepartments } from '@/features/team/api'
 import { formatDateTime } from '@/lib/utils'
 import {
   useAssignRole,
@@ -26,8 +27,9 @@ import { USER_STATUS_VARIANT } from './constants'
 
 const SCOPE_LABELS = {
   company: 'Whole company',
-  own: 'Own records only',
+  department: 'One department',
   product: 'One product',
+  own: 'Own records only',
 }
 
 function AccountCard({ user }) {
@@ -87,11 +89,13 @@ function AccountCard({ user }) {
 function AssignRoleForm({ user }) {
   const roles = useRoles()
   const products = useProductOptions()
+  const departments = useDepartments()
   const assign = useAssignRole(user.id)
   const [roleId, setRoleId] = useState('')
   const [scopeType, setScopeType] = useState('company')
   const [scopeId, setScopeId] = useState('')
-  const needsTarget = scopeType === 'product'
+  const needsTarget = scopeType === 'product' || scopeType === 'department'
+  const targets = scopeType === 'product' ? (products.data ?? []) : (departments.data ?? [])
 
   return (
     <form
@@ -141,16 +145,14 @@ function AssignRoleForm({ user }) {
         </div>
         {needsTarget && (
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="assign-product">Product</Label>
-            <Select
-              id="assign-product"
-              value={scopeId}
-              onChange={(e) => setScopeId(e.target.value)}
-            >
-              <option value="">Select a product…</option>
-              {(products.data ?? []).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+            <Label htmlFor="assign-target">
+              {scopeType === 'product' ? 'Product' : 'Department'}
+            </Label>
+            <Select id="assign-target" value={scopeId} onChange={(e) => setScopeId(e.target.value)}>
+              <option value="">Select…</option>
+              {targets.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
                 </option>
               ))}
             </Select>
@@ -172,9 +174,18 @@ function AssignRoleForm({ user }) {
 function RolesCard({ user, isSelf }) {
   const { has } = usePermissions()
   const products = useProductOptions()
+  const departments = useDepartments()
   const revoke = useRevokeRole(user.id)
   const canManageRoles = has('role.manage') && !isSelf
-  const productName = (id) => products.data?.find((p) => p.id === id)?.name ?? 'a product'
+  const scopeDescription = (a) => {
+    if (a.scope_type === 'product') {
+      return `Product: ${products.data?.find((p) => p.id === a.scope_id)?.name ?? 'a product'}`
+    }
+    if (a.scope_type === 'department') {
+      return `Department: ${departments.data?.find((d) => d.id === a.scope_id)?.name ?? 'a department'}`
+    }
+    return SCOPE_LABELS[a.scope_type] ?? a.scope_type
+  }
 
   return (
     <Card>
@@ -192,11 +203,7 @@ function RolesCard({ user, isSelf }) {
               <li key={a.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                 <div>
                   <p className="font-medium">{a.role_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {a.scope_type === 'product'
-                      ? `Product: ${productName(a.scope_id)}`
-                      : (SCOPE_LABELS[a.scope_type] ?? a.scope_type)}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{scopeDescription(a)}</p>
                 </div>
                 {canManageRoles && (
                   <Button

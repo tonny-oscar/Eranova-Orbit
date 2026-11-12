@@ -45,6 +45,18 @@ export const routes = [
                 lazy: page(() => import('@/features/products/ProductFormPages'), 'EditProductPage'),
               },
               {
+                path: 'team',
+                lazy: page(() => import('@/features/team/TeamPage'), 'TeamPage'),
+              },
+              {
+                path: 'team/departments',
+                lazy: page(() => import('@/features/team/DepartmentsPage'), 'DepartmentsPage'),
+              },
+              {
+                path: 'team/:userId',
+                lazy: page(() => import('@/features/team/EmployeePage'), 'EmployeePage'),
+              },
+              {
                 path: 'settings/profile',
                 lazy: page(() => import('@/features/settings/ProfilePage'), 'ProfilePage'),
               },
