@@ -1,4 +1,4 @@
-import { LayoutDashboard, ScrollText, Settings, ShieldCheck } from 'lucide-react'
+import { Boxes, LayoutDashboard, ScrollText, Settings, ShieldCheck } from 'lucide-react'
 
 /**
  * Command-centre navigation. Only modules that are actually delivered appear
@@ -10,7 +10,10 @@ import { LayoutDashboard, ScrollText, Settings, ShieldCheck } from 'lucide-react
 export const NAV_SECTIONS = [
   {
     label: 'Command centre',
-    items: [{ to: '/app', label: 'Overview', icon: LayoutDashboard, end: true }],
+    items: [
+      { to: '/app', label: 'Overview', icon: LayoutDashboard, end: true },
+      { to: '/app/products', label: 'Products', icon: Boxes, permission: 'product.read' },
+    ],
   },
   {
     label: 'Administration',

@@ -18,14 +18,14 @@ If npm fails with a TLS certificate error, set `$env:NODE_OPTIONS="--use-system-
 
 ## Scripts
 
-| Script | Purpose |
-| --- | --- |
-| `npm run dev` | Development server |
-| `npm run build` | Production build to `dist/` |
-| `npm run lint` | ESLint |
-| `npm run format` / `format:check` | Prettier |
-| `npm test` | Vitest component and flow tests |
-| `npm run test:e2e` | Playwright (needs a running API and `E2E_EMAIL` / `E2E_PASSWORD`) |
+| Script                            | Purpose                                                           |
+| --------------------------------- | ----------------------------------------------------------------- |
+| `npm run dev`                     | Development server                                                |
+| `npm run build`                   | Production build to `dist/`                                       |
+| `npm run lint`                    | ESLint                                                            |
+| `npm run format` / `format:check` | Prettier                                                          |
+| `npm test`                        | Vitest component and flow tests                                   |
+| `npm run test:e2e`                | Playwright (needs a running API and `E2E_EMAIL` / `E2E_PASSWORD`) |
 
 ## Source layout
 

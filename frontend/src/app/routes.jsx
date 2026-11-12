@@ -1,12 +1,12 @@
-import { AuditLogPage } from '@/features/admin/AuditLogPage'
-import { RolesPage } from '@/features/admin/RolesPage'
 import { RequireAuth } from '@/features/auth/guards'
 import { LoginPage } from '@/features/auth/LoginPage'
-import { OverviewPage } from '@/features/dashboard/OverviewPage'
-import { ProfilePage } from '@/features/settings/ProfilePage'
-import { AppLayout } from '@/layouts/AppLayout'
 import { NotFoundPage, RouteErrorPage } from '@/routes/ErrorPages'
 import { HomePage } from '@/routes/HomePage'
+
+// Authenticated pages are code-split so the public site and sign-in stay small.
+const page = (load, name) => async () => ({ Component: (await load())[name] })
+
+const AppLayout = page(() => import('@/layouts/AppLayout'), 'AppLayout')
 
 export const routes = [
   {
@@ -19,12 +19,43 @@ export const routes = [
         element: <RequireAuth />,
         children: [
           {
-            element: <AppLayout />,
+            lazy: AppLayout,
             children: [
-              { index: true, element: <OverviewPage /> },
-              { path: 'settings/profile', element: <ProfilePage /> },
-              { path: 'settings/roles', element: <RolesPage /> },
-              { path: 'settings/audit-log', element: <AuditLogPage /> },
+              {
+                index: true,
+                lazy: page(() => import('@/features/dashboard/OverviewPage'), 'OverviewPage'),
+              },
+              {
+                path: 'products',
+                lazy: page(() => import('@/features/products/ProductsPage'), 'ProductsPage'),
+              },
+              {
+                path: 'products/new',
+                lazy: page(() => import('@/features/products/ProductFormPages'), 'NewProductPage'),
+              },
+              {
+                path: 'products/:productId',
+                lazy: page(
+                  () => import('@/features/products/ProductDetailPage'),
+                  'ProductDetailPage',
+                ),
+              },
+              {
+                path: 'products/:productId/edit',
+                lazy: page(() => import('@/features/products/ProductFormPages'), 'EditProductPage'),
+              },
+              {
+                path: 'settings/profile',
+                lazy: page(() => import('@/features/settings/ProfilePage'), 'ProfilePage'),
+              },
+              {
+                path: 'settings/roles',
+                lazy: page(() => import('@/features/admin/RolesPage'), 'RolesPage'),
+              },
+              {
+                path: 'settings/audit-log',
+                lazy: page(() => import('@/features/admin/AuditLogPage'), 'AuditLogPage'),
+              },
               { path: '*', element: <NotFoundPage /> },
             ],
           },
