@@ -48,7 +48,7 @@ def product_context(product: Product) -> ResourceContext:
     )
 
 
-def _scope_condition(scope: ScopeFilter, user_id: uuid.UUID) -> ColumnElement[bool]:
+def product_scope_condition(scope: ScopeFilter, user_id: uuid.UUID) -> ColumnElement[bool]:
     if scope.company_wide:
         return Product.id.is_not(None)
     conditions: list[ColumnElement[bool]] = []
@@ -80,7 +80,7 @@ async def list_products(
 ) -> ProductPage:
     conditions = [
         Product.company_id == principal.company_id,
-        _scope_condition(scope_filter(principal, "product.read"), principal.user_id),
+        product_scope_condition(scope_filter(principal, "product.read"), principal.user_id),
     ]
     if status:
         conditions.append(Product.lifecycle_status == status)

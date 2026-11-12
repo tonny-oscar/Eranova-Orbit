@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, MetaData, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -21,6 +21,12 @@ class Base(DeclarativeBase):
 
 class UUIDPrimaryKeyMixin:
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+
+def utc_now() -> datetime:
+    """Per-row timestamp. PostgreSQL now() is fixed per transaction, so events
+    written together would tie and lose their order."""
+    return datetime.now(UTC)
 
 
 class TimestampMixin:

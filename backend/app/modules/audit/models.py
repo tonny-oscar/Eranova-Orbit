@@ -7,7 +7,7 @@ from sqlalchemy import CheckConstraint, ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, UUIDPrimaryKeyMixin
+from app.db.base import Base, UUIDPrimaryKeyMixin, utc_now
 
 
 class ActorType(StrEnum):
@@ -35,7 +35,9 @@ class AuditLog(UUIDPrimaryKeyMixin, Base):
         Index("ix_audit_logs_resource", "resource_type", "resource_id"),
     )
 
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        default=utc_now, server_default=func.now(), index=True
+    )
     company_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("companies.id", ondelete="RESTRICT"), index=True
     )
