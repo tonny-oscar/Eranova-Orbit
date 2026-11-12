@@ -1,5 +1,5 @@
 import { Boxes, Plus, Search } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { buttonVariants, Button } from '@/components/ui/button'
@@ -8,21 +8,13 @@ import { Select } from '@/components/ui/form-controls'
 import { Input, Label } from '@/components/ui/input'
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states'
 import { useMe, usePermissions } from '@/features/auth/hooks'
+import { useDebounced } from '@/hooks/useDebounced'
 import { formatDateTime } from '@/lib/utils'
 import { useProducts } from './api'
 import { LIFECYCLE_STATUSES } from './constants'
 import { ProductStatusBadge, UnconfirmedBadge } from './ProductStatusBadge'
 
 const PAGE_SIZE = 25
-
-function useDebounced(value, delay = 300) {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(timer)
-  }, [value, delay])
-  return debounced
-}
 
 export function ProductsPage() {
   const { has } = usePermissions()

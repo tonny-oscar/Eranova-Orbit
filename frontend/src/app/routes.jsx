@@ -49,8 +49,24 @@ export const routes = [
                 lazy: page(() => import('@/features/settings/ProfilePage'), 'ProfilePage'),
               },
               {
+                path: 'settings/users',
+                lazy: page(() => import('@/features/admin/UsersPage'), 'UsersPage'),
+              },
+              {
+                path: 'settings/users/:userId',
+                lazy: page(() => import('@/features/admin/UserDetailPage'), 'UserDetailPage'),
+              },
+              {
                 path: 'settings/roles',
                 lazy: page(() => import('@/features/admin/RolesPage'), 'RolesPage'),
+              },
+              {
+                path: 'settings/roles/new',
+                lazy: page(() => import('@/features/admin/RoleEditorPage'), 'RoleEditorPage'),
+              },
+              {
+                path: 'settings/roles/:roleId',
+                lazy: page(() => import('@/features/admin/RoleEditorPage'), 'RoleEditorPage'),
               },
               {
                 path: 'settings/audit-log',

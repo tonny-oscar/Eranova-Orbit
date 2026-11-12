@@ -1,9 +1,12 @@
-import { Lock, ShieldCheck } from 'lucide-react'
+import { Lock, Plus, ShieldCheck } from 'lucide-react'
+import { Link } from 'react-router'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
+import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states'
 import { RequirePermission } from '@/features/auth/guards'
+import { usePermissions } from '@/features/auth/hooks'
 import { useRoles } from './api'
 
 function RolesTable() {
@@ -47,7 +50,12 @@ function RolesTable() {
               <tr key={role.id} className="hover:bg-muted/30">
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{role.name}</span>
+                    <Link
+                      to={`/app/settings/roles/${role.id}`}
+                      className="font-medium hover:text-accent"
+                    >
+                      {role.name}
+                    </Link>
                     {role.is_locked && (
                       <Badge variant="warning">
                         <Lock className="mr-1 size-3" aria-hidden="true" /> Locked
@@ -71,11 +79,19 @@ function RolesTable() {
 }
 
 export function RolesPage() {
+  const { has } = usePermissions()
   return (
     <>
       <PageHeader
         title="Roles"
-        description="Starter roles are fully customisable except the locked Super Admin role. Role editing arrives with user management."
+        description="Starter roles are customisable; Super Admin is locked. You can only grant permissions you hold."
+        actions={
+          has('role.create') && (
+            <Link to="/app/settings/roles/new" className={buttonVariants()}>
+              <Plus aria-hidden="true" /> New role
+            </Link>
+          )
+        }
       />
       <RequirePermission permission="role.read">
         <RolesTable />

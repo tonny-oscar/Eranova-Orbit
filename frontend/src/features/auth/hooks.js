@@ -42,5 +42,9 @@ export function useLogout() {
 }
 
 export function useChangePassword() {
-  return useMutation({ mutationFn: changePassword })
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: changePassword,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY }),
+  })
 }

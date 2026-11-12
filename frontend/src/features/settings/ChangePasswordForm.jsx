@@ -20,13 +20,12 @@ const schema = z
     message: 'Passwords do not match.',
   })
 
-const fields = [
-  { name: 'current_password', label: 'Current password', autoComplete: 'current-password' },
-  { name: 'new_password', label: 'New password', autoComplete: 'new-password' },
-  { name: 'confirm_password', label: 'Confirm new password', autoComplete: 'new-password' },
-]
-
-export function ChangePasswordForm() {
+export function ChangePasswordForm({ currentLabel = 'Current password' }) {
+  const fields = [
+    { name: 'current_password', label: currentLabel, autoComplete: 'current-password' },
+    { name: 'new_password', label: 'New password', autoComplete: 'new-password' },
+    { name: 'confirm_password', label: 'Confirm new password', autoComplete: 'new-password' },
+  ]
   const mutation = useChangePassword()
   const {
     register,

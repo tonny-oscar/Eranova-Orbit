@@ -1,7 +1,34 @@
 import { ShieldOff } from 'lucide-react'
 import { Navigate, Outlet, useLocation } from 'react-router'
+import { LogoMark } from '@/components/brand/Logo'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states'
+import { ChangePasswordForm } from '@/features/settings/ChangePasswordForm'
 import { useMe, usePermissions } from './hooks'
+
+function ForcedPasswordChange({ me }) {
+  return (
+    <main className="grid min-h-dvh place-items-center px-4 py-10">
+      <div className="w-full max-w-md space-y-6">
+        <div className="flex justify-center">
+          <LogoMark className="size-11" />
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle as="h1">Set your password</CardTitle>
+            <CardDescription>
+              Welcome, {me.user.full_name}. You signed in with a temporary password. Choose your own
+              before continuing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChangePasswordForm currentLabel="Temporary password" />
+          </CardContent>
+        </Card>
+      </div>
+    </main>
+  )
+}
 
 /**
  * UX guard only. Every protected API enforces authentication and permissions
@@ -23,6 +50,7 @@ export function RequireAuth() {
     const next = `${location.pathname}${location.search}`
     return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />
   }
+  if (me.user.must_change_password) return <ForcedPasswordChange me={me} />
   return <Outlet />
 }
 
