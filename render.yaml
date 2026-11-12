@@ -1,0 +1,38 @@
+# Render Blueprint for the Orbit API (staging shown; duplicate with "production"
+# names, a separate database and separate secrets for production).
+# Secrets marked `sync: false` must be entered in the Render dashboard.
+databases:
+  - name: orbit-db-staging
+    databaseName: orbit
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: orbit-api-staging
+    runtime: python
+    rootDir: backend
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    # Controlled migration step: runs before the new version receives traffic.
+    preDeployCommand: alembic upgrade head && python -m app.cli bootstrap
+    startCommand: uvicorn app.main:create_app --factory --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*" --no-server-header
+    healthCheckPath: /ready
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: ENVIRONMENT
+        value: staging
+      - key: DATABASE_URL
+        fromDatabase:
+          name: orbit-db-staging
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: SESSION_COOKIE_DOMAIN
+        sync: false
