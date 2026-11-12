@@ -27,14 +27,14 @@ test.describe('authentication', () => {
     await page.getByRole('button', { name: 'Sign in' }).click()
 
     await expect(page).toHaveURL(/\/app$/)
-    await expect(page.getByText('No business data connected yet')).toBeVisible()
+    await expect(page.getByText('Sales, revenue and traffic are not connected yet')).toBeVisible()
 
     const cookies = await page.context().cookies()
     const session = cookies.find((c) => c.name.endsWith('orbit_session'))
     expect(session?.httpOnly).toBe(true)
 
     await page.reload()
-    await expect(page.getByText('No business data connected yet')).toBeVisible()
+    await expect(page.getByText('Sales, revenue and traffic are not connected yet')).toBeVisible()
 
     await page.getByRole('button', { name: /sign out/i }).click()
     await expect(page).toHaveURL(/\/login/)

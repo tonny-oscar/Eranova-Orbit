@@ -29,5 +29,7 @@ export default defineConfig({
     setupFiles: ['./tests/setup.js'],
     include: ['src/**/*.test.{js,jsx}'],
     css: false,
+    // First render of a lazy route compiles its module, which is slow on cold caches.
+    testTimeout: 20_000,
   },
 })

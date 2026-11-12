@@ -1,8 +1,40 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { jsonResponse, ME, mockApi, renderRoute } from '../../tests/utils'
 
 const READY = () => jsonResponse(200, { status: 'ready', checks: { database: 'ok' } })
+const EMPTY_SUMMARY = {
+  generated_at: '2026-11-12T08:00:00Z',
+  source: 'Orbit database (live)',
+  products: null,
+  people: null,
+  accounts: null,
+  recent_activity: null,
+}
+
+function renderRouteWithSearch() {
+  mockApi({
+    'GET /api/v1/auth/me': () => jsonResponse(200, { ...ME, permissions: ['product.read'] }),
+    'GET /ready': READY,
+    'GET /api/v1/dashboard/summary': () => jsonResponse(200, EMPTY_SUMMARY),
+    'GET /api/v1/search': () =>
+      jsonResponse(200, {
+        query: 'shu',
+        results: [
+          {
+            type: 'product',
+            id: 'p1',
+            title: 'ShulePoa',
+            subtitle: 'Education',
+            url: '/app/products/p1',
+          },
+        ],
+      }),
+    'GET /api/v1/products/p1': () => jsonResponse(404, { error: { message: 'x' } }),
+  })
+  return renderRoute('/app')
+}
 
 describe('command centre shell', () => {
   it('hides administration links the user has no permission for', async () => {
@@ -27,11 +59,49 @@ describe('command centre shell', () => {
   })
 
   it('shows an honest empty state instead of placeholder metrics', async () => {
-    mockApi({ 'GET /api/v1/auth/me': () => jsonResponse(200, ME), 'GET /ready': READY })
+    mockApi({
+      'GET /api/v1/auth/me': () => jsonResponse(200, ME),
+      'GET /ready': READY,
+      'GET /api/v1/dashboard/summary': () => jsonResponse(200, EMPTY_SUMMARY),
+    })
     renderRoute('/app')
 
-    expect(await screen.findByText('No business data connected yet')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Sales, revenue and traffic are not connected yet'),
+    ).toBeInTheDocument()
     expect(await screen.findByText('Operational')).toBeInTheDocument()
+    expect(await screen.findByText(/don't include company summaries/)).toBeInTheDocument()
+  })
+
+  it('shows live summary figures with their source and timestamp', async () => {
+    mockApi({
+      'GET /api/v1/auth/me': () => jsonResponse(200, ME),
+      'GET /ready': READY,
+      'GET /api/v1/dashboard/summary': () =>
+        jsonResponse(200, {
+          ...EMPTY_SUMMARY,
+          products: { total: 5, by_status: { draft: 4, live: 1 }, unconfirmed: 4 },
+          people: { active: 7, departments: 2 },
+        }),
+    })
+    renderRoute('/app')
+
+    expect(await screen.findByText('In registry')).toBeInTheDocument()
+    expect(screen.getByText('5')).toBeInTheDocument()
+    expect(screen.getByText('Live: 1')).toBeInTheDocument()
+    expect(screen.getByText('Active people')).toBeInTheDocument()
+    expect(screen.getByText(/Source: Orbit database \(live\)/)).toBeInTheDocument()
+  })
+
+  it('searches and navigates from the header', async () => {
+    const user = userEvent.setup()
+    const { router } = renderRouteWithSearch()
+
+    await user.type(await screen.findByRole('combobox', { name: 'Search Orbit' }), 'shu')
+    const option = await screen.findByRole('option', { name: /ShulePoa/ })
+    await user.click(option)
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/app/products/p1'))
   })
 
   it('blocks a page the user lacks permission for even via direct URL', async () => {

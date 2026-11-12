@@ -5,6 +5,7 @@ import { Logo } from '@/components/brand/Logo'
 import { Button } from '@/components/ui/button'
 import { useLogout, useMe, usePermissions } from '@/features/auth/hooks'
 import { visibleSections } from '@/features/navigation/navConfig'
+import { GlobalSearch } from '@/features/search/GlobalSearch'
 import { cn } from '@/lib/utils'
 
 const COLLAPSE_KEY = 'orbit.sidebar.collapsed'
@@ -157,7 +158,7 @@ export function AppLayout() {
           >
             <Menu />
           </Button>
-          <p className="truncate text-sm text-muted-foreground">{me?.company?.name}</p>
+          <GlobalSearch />
           <div className="ml-auto flex items-center gap-3">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium leading-tight">{me?.user?.full_name}</p>

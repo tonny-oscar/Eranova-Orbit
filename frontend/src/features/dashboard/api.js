@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ApiError, apiRequest } from '@/lib/api/client'
 
 async function fetchReadiness({ signal }) {
@@ -20,5 +20,23 @@ export function useReadiness() {
     queryKey: ['system', 'readiness'],
     queryFn: fetchReadiness,
     refetchInterval: 60_000,
+  })
+}
+
+export function useDashboardSummary() {
+  return useQuery({
+    queryKey: ['dashboard', 'summary'],
+    queryFn: ({ signal }) => apiRequest('/api/v1/dashboard/summary', { signal }),
+    refetchInterval: 120_000,
+  })
+}
+
+export function useGlobalSearch(q) {
+  return useQuery({
+    queryKey: ['search', q],
+    queryFn: ({ signal }) => apiRequest('/api/v1/search', { query: { q }, signal }),
+    enabled: q.length >= 2,
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
   })
 }

@@ -1,3 +1,4 @@
+import { LoadingState } from '@/components/ui/states'
 import { RequireAuth } from '@/features/auth/guards'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { NotFoundPage, RouteErrorPage } from '@/routes/ErrorPages'
@@ -11,6 +12,7 @@ const AppLayout = page(() => import('@/layouts/AppLayout'), 'AppLayout')
 export const routes = [
   {
     errorElement: <RouteErrorPage />,
+    hydrateFallbackElement: <LoadingState className="min-h-dvh" />,
     children: [
       { path: '/', element: <HomePage /> },
       { path: '/login', element: <LoginPage /> },
