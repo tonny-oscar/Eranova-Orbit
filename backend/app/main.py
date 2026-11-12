@@ -13,6 +13,7 @@ from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import CORRELATION_HEADER, OriginCheckMiddleware, RequestContextMiddleware
 from app.db.session import dispose_engine
+from app.modules.scopes import register_scope_validators
 
 
 @asynccontextmanager
@@ -24,6 +25,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
+    register_scope_validators()
 
     app = FastAPI(
         title="Eranova Orbit API",

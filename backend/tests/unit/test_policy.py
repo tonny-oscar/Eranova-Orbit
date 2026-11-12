@@ -89,6 +89,23 @@ def test_delegation_requires_equal_or_broader_scope():
     }
 
 
+def test_scope_filter_collects_grants_by_type():
+    from app.modules.authorization.policy import scope_filter
+
+    p = principal(
+        product__read={
+            Grant(ScopeType.PRODUCT, PRODUCT_A),
+            Grant(ScopeType.PRODUCT, PRODUCT_B),
+            Grant(ScopeType.OWN),
+        }
+    )
+    f = scope_filter(p, "product.read")
+    assert not f.company_wide
+    assert f.product_ids == {PRODUCT_A, PRODUCT_B}
+    assert f.own
+    assert scope_filter(p, "product.update").is_empty
+
+
 def test_delegation_reports_permissions_actor_lacks():
     p = principal(role__manage={Grant(ScopeType.COMPANY)})
     assert can_delegate(p, {"role.manage", "invoice.approve"}, Grant(ScopeType.COMPANY)) == {

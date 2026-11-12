@@ -83,6 +83,50 @@ def is_allowed(
     return any(grant_covers_resource(g, principal, target) for g in grants)
 
 
+@dataclass(frozen=True)
+class ScopeFilter:
+    """The set of records a principal may access for one permission.
+
+    Services translate this into WHERE clauses for list queries.
+    """
+
+    company_wide: bool = False
+    department_ids: frozenset[uuid.UUID] = frozenset()
+    product_ids: frozenset[uuid.UUID] = frozenset()
+    project_ids: frozenset[uuid.UUID] = frozenset()
+    own: bool = False
+
+    @property
+    def is_empty(self) -> bool:
+        return not (
+            self.company_wide
+            or self.department_ids
+            or self.product_ids
+            or self.project_ids
+            or self.own
+        )
+
+
+def scope_filter(principal: Principal, permission: str) -> ScopeFilter:
+    grants = principal.grants_for(permission)
+    ids: dict[ScopeType, set[uuid.UUID]] = defaultdict(set)
+    company_wide = own = False
+    for grant in grants:
+        if grant.scope_type == ScopeType.COMPANY:
+            company_wide = True
+        elif grant.scope_type == ScopeType.OWN:
+            own = True
+        elif grant.scope_id is not None:
+            ids[grant.scope_type].add(grant.scope_id)
+    return ScopeFilter(
+        company_wide=company_wide,
+        department_ids=frozenset(ids[ScopeType.DEPARTMENT]),
+        product_ids=frozenset(ids[ScopeType.PRODUCT]),
+        project_ids=frozenset(ids[ScopeType.PROJECT]),
+        own=own,
+    )
+
+
 def grant_covers_grant(held: Grant, requested: Grant) -> bool:
     """Whether holding ``held`` is enough authority to hand out ``requested``."""
     if held.scope_type == ScopeType.COMPANY:

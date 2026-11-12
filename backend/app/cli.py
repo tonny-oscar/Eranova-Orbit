@@ -4,6 +4,8 @@ python -m app.cli bootstrap            Sync company, permission catalogue and st
 python -m app.cli create-superadmin    Interactively create the first Super Admin
 python -m app.cli reset-password       Set a new password for a user and sign them out everywhere
 python -m app.cli purge-auth-records   Apply retention to login attempts and old sessions
+python -m app.cli register-initial-products
+                                       Register the five launch products as unconfirmed drafts
 """
 
 import argparse
@@ -12,6 +14,7 @@ import getpass
 import sys
 
 from email_validator import EmailNotValidError, validate_email
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -32,8 +35,58 @@ from app.modules.identity.service import (
     purge_expired_records,
     reset_password_as_system,
 )
+from app.modules.products.models import Product, ProductStatusHistory
 
-COMMANDS = ["bootstrap", "create-superadmin", "reset-password", "purge-auth-records"]
+COMMANDS = [
+    "bootstrap",
+    "create-superadmin",
+    "reset-password",
+    "purge-auth-records",
+    "register-initial-products",
+]
+
+# Names only. Descriptions, pricing and links must be entered and confirmed by
+# product owners; Orbit never invents product facts.
+INITIAL_PRODUCTS = [
+    ("ShulePoa", "shulepoa"),
+    ("HostPilot", "hostpilot"),
+    ("OTPGuard", "otpguard"),
+    ("SitePoa", "sitepoa"),
+    ("MenuPoa", "menupoa"),
+]
+
+
+async def register_initial_products(session: AsyncSession) -> list[str]:
+    company = await ensure_company(session, get_settings())
+    created: list[str] = []
+    for name, slug in INITIAL_PRODUCTS:
+        exists = await session.scalar(
+            select(Product.id).where(Product.company_id == company.id, Product.slug == slug)
+        )
+        if exists:
+            continue
+        product = Product(company_id=company.id, name=name, slug=slug)
+        session.add(product)
+        await session.flush()
+        session.add(
+            ProductStatusHistory(
+                product_id=product.id, to_status=product.lifecycle_status, reason="Registered"
+            )
+        )
+        await record_event(
+            session,
+            action="product.create",
+            outcome=AuditOutcome.SUCCESS,
+            actor_type=ActorType.SYSTEM,
+            company_id=company.id,
+            resource_type="product",
+            resource_id=product.id,
+            meta=SYSTEM_META,
+            details={"name": name, "slug": slug, "via": "cli"},
+        )
+        created.append(slug)
+    await session.commit()
+    return created
 
 
 async def bootstrap(session: AsyncSession) -> None:
@@ -116,6 +169,10 @@ async def _run(command: str) -> None:
         elif command == "purge-auth-records":
             async with get_sessionmaker()() as session:
                 print(await purge_expired_records(session))
+        elif command == "register-initial-products":
+            async with get_sessionmaker()() as session:
+                created = await register_initial_products(session)
+                print(f"Registered: {', '.join(created) or 'nothing new'}")
     finally:
         await dispose_engine()
 

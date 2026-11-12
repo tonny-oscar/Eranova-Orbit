@@ -147,8 +147,8 @@ async def test_scopes_for_unbuilt_modules_are_rejected(client, make_user, db):
     response = await client.post(
         f"/api/v1/users/{target.id}/roles",
         json={
-            "role_id": str(await _role_id(db, "product_manager")),
-            "scope_type": "product",
+            "role_id": str(await _role_id(db, "department_manager")),
+            "scope_type": "department",
             "scope_id": str(uuid.uuid4()),
         },
         headers={"X-CSRF-Token": csrf},
