@@ -18,6 +18,8 @@ from app.modules.company.models import Company
 from app.modules.identity import admin_service
 from app.modules.identity.models import User, UserStatus
 from app.modules.identity.schemas import UserSummary
+from app.modules.people.models import EmployeeProfile
+from app.modules.people.service import department_member_condition
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -61,8 +63,10 @@ def _assignment_out(view: authz_service.AssignmentView) -> RoleAssignmentOut:
     )
 
 
-def _user_context(user: User) -> ResourceContext:
-    return ResourceContext(company_id=user.company_id, owner_user_id=user.id)
+def _user_context(user: User, department_id: uuid.UUID | None) -> ResourceContext:
+    return ResourceContext(
+        company_id=user.company_id, owner_user_id=user.id, department_id=department_id
+    )
 
 
 @router.get("", response_model=Page[UserListItem])
@@ -73,13 +77,13 @@ async def list_users(
     auth: AuthContext = Depends(require_permission("user.read")),
     db: AsyncSession = Depends(get_db),
 ) -> Page[UserListItem]:
-    conditions = [User.company_id == auth.user.company_id]
-    company_wide = is_allowed(
-        auth.principal, "user.read", ResourceContext(company_id=auth.user.company_id)
-    )
-    if not company_wide:
-        # Department-scoped user access arrives with the people module.
-        conditions.append(User.id == auth.user.id)
+    conditions = [
+        User.company_id == auth.user.company_id,
+        or_(
+            department_member_condition(auth.principal, "user.read"),
+            User.id == auth.user.id,
+        ),
+    ]
     if user_status:
         conditions.append(User.status == user_status)
     if q:
@@ -141,8 +145,17 @@ async def _get_visible_user(db: AsyncSession, auth: AuthContext, user_id: uuid.U
     user = await db.scalar(
         select(User).where(User.id == user_id, User.company_id == auth.user.company_id)
     )
+    department_id = (
+        await db.scalar(
+            select(EmployeeProfile.department_id).where(EmployeeProfile.user_id == user_id)
+        )
+        if user
+        else None
+    )
     # Unauthorized and missing records look identical to avoid confirming existence.
-    if user is None or not is_allowed(auth.principal, "user.read", _user_context(user)):
+    if user is None or not is_allowed(
+        auth.principal, "user.read", _user_context(user, department_id)
+    ):
         raise NotFoundError("User not found.")
     return user
 
