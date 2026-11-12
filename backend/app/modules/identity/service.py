@@ -256,6 +256,7 @@ async def change_password(
 
     user.password_hash = hash_password(new_password)
     user.password_changed_at = utcnow()
+    user.must_change_password = False
     revoked = await revoke_other_sessions(
         session, user.id, keep_session_id=current_session.id, reason="password_changed"
     )
@@ -286,6 +287,7 @@ async def reset_password_as_system(
     validate_new_password(new_password, email=email)
     user.password_hash = hash_password(new_password)
     user.password_changed_at = utcnow()
+    user.must_change_password = True
     revoked = await revoke_other_sessions(
         session, user.id, keep_session_id=None, reason="password_reset"
     )

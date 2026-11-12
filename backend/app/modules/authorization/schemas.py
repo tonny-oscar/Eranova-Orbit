@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.authorization.catalogue import ScopeType
 
@@ -25,6 +25,18 @@ class RoleOut(BaseModel):
     is_locked: bool
     permissions: list[str]
     assignment_count: int
+
+
+class RoleCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=100)
+    description: str = Field(default="", max_length=500)
+    permissions: list[str] = Field(default_factory=list, max_length=500)
+
+
+class RoleUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    permissions: list[str] | None = Field(default=None, max_length=500)
 
 
 class RoleAssignmentCreate(BaseModel):

@@ -19,6 +19,12 @@ from app.modules.identity.service import resolve_session
 
 CSRF_HEADER = "X-CSRF-Token"
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+# The only endpoints usable until a temporary password has been replaced.
+_PASSWORD_CHANGE_ALLOWED = {
+    "/api/v1/auth/me",
+    "/api/v1/auth/logout",
+    "/api/v1/auth/change-password",
+}
 _SENSITIVE_PERMISSIONS = frozenset(p.key for p in PERMISSION_CATALOGUE if p.is_sensitive)
 
 
@@ -48,6 +54,10 @@ async def get_auth_context(
         request.headers.get(CSRF_HEADER), token, settings.secret_key
     ):
         raise PermissionDeniedError("Missing or invalid CSRF token.", code="csrf_failed")
+    if user.must_change_password and request.url.path not in _PASSWORD_CHANGE_ALLOWED:
+        raise PermissionDeniedError(
+            "Change your temporary password to continue.", code="password_change_required"
+        )
     principal = await load_principal(db, user)
     return AuthContext(user=user, session=user_session, principal=principal, token=token)
 

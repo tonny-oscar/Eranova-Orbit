@@ -1,10 +1,11 @@
 import logging
+import re
 import uuid
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ConflictError, NotFoundError, PermissionDeniedError
@@ -24,8 +25,8 @@ from app.modules.identity.models import User, UserStatus
 
 logger = logging.getLogger(__name__)
 
-# Scope types whose target tables exist register a validator here. Until the
-# products/departments/projects modules land, those scopes cannot be assigned.
+# Modules that own scope targets register a validator here (see app/modules/scopes.py).
+# Scope types without a validator cannot be assigned yet.
 ScopeValidator = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[bool]]
 SCOPE_VALIDATORS: dict[ScopeType, ScopeValidator] = {}
 
@@ -207,7 +208,7 @@ async def _get_company_user(
     return user
 
 
-async def _active_super_admin_count(session: AsyncSession, company_id: uuid.UUID) -> int:
+async def active_super_admin_count(session: AsyncSession, company_id: uuid.UUID) -> int:
     count = await session.scalar(
         select(func.count(func.distinct(UserRole.user_id)))
         .join(Role, Role.id == UserRole.role_id)
@@ -395,7 +396,7 @@ async def revoke_role(
         role.slug == SUPER_ADMIN_SLUG
         and assignment.scope_type == ScopeType.COMPANY
         and target.is_active
-        and await _active_super_admin_count(session, actor.company_id) <= 1
+        and await active_super_admin_count(session, actor.company_id) <= 1
     ):
         raise ConflictError(
             "The last active Super Admin cannot be removed.", code="last_super_admin"
@@ -417,6 +418,232 @@ async def revoke_role(
             "scope_type": assignment.scope_type,
             "scope_id": str(assignment.scope_id) if assignment.scope_id else None,
         },
+    )
+    await session.commit()
+
+
+async def is_super_admin(session: AsyncSession, user: User) -> bool:
+    found = await session.scalar(
+        select(UserRole.id)
+        .join(Role, Role.id == UserRole.role_id)
+        .where(
+            UserRole.user_id == user.id,
+            Role.slug == SUPER_ADMIN_SLUG,
+            UserRole.scope_type == ScopeType.COMPANY,
+        )
+    )
+    return found is not None
+
+
+async def role_names_by_user(
+    session: AsyncSession, user_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[str]]:
+    names: dict[uuid.UUID, list[str]] = defaultdict(list)
+    if not user_ids:
+        return names
+    rows = await session.execute(
+        select(UserRole.user_id, Role.name)
+        .join(Role, Role.id == UserRole.role_id)
+        .where(UserRole.user_id.in_(user_ids))
+        .order_by(Role.name)
+        .distinct()
+    )
+    for user_id, name in rows:
+        names[user_id].append(name)
+    return names
+
+
+# ---------------------------------------------------------------------------
+# Custom roles
+# ---------------------------------------------------------------------------
+
+
+def _slugify(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+    return slug[:64] or "role"
+
+
+async def _permission_rows(session: AsyncSession, keys: set[str]) -> dict[str, Permission]:
+    rows = {
+        p.key: p for p in await session.scalars(select(Permission).where(Permission.key.in_(keys)))
+    }
+    unknown = keys - set(rows)
+    if unknown:
+        raise AppError(
+            "Some permissions do not exist.",
+            code="unknown_permission",
+            details=[{"field": "permissions", "message": key} for key in sorted(unknown)],
+        )
+    return rows
+
+
+def _ensure_holds_company_wide(principal: Principal, keys: set[str]) -> None:
+    missing = can_delegate(principal, keys, Grant(ScopeType.COMPANY))
+    if missing:
+        raise PermissionDeniedError(
+            "Roles can only include permissions you hold company-wide.",
+            code="role_exceeds_authority",
+            details=[{"field": "permissions", "message": key} for key in sorted(missing)],
+        )
+
+
+async def _ensure_role_name_free(
+    session: AsyncSession, company_id: uuid.UUID, name: str, exclude: uuid.UUID | None = None
+) -> None:
+    query = select(Role.id).where(
+        Role.company_id == company_id, func.lower(Role.name) == name.lower()
+    )
+    if exclude:
+        query = query.where(Role.id != exclude)
+    if await session.scalar(query):
+        raise ConflictError(
+            "A role with this name already exists.",
+            code="role_name_taken",
+            details=[{"field": "name", "message": "This name is already in use."}],
+        )
+
+
+async def create_role(
+    session: AsyncSession,
+    *,
+    actor: User,
+    principal: Principal,
+    name: str,
+    description: str,
+    permission_keys: set[str],
+    meta: RequestMeta,
+) -> RoleView:
+    name = name.strip()
+    await _ensure_role_name_free(session, actor.company_id, name)
+    permissions = await _permission_rows(session, permission_keys)
+    _ensure_holds_company_wide(principal, permission_keys)
+
+    base_slug = _slugify(name)
+    slug = base_slug
+    suffix = 2
+    while await session.scalar(
+        select(Role.id).where(Role.company_id == actor.company_id, Role.slug == slug)
+    ):
+        slug = f"{base_slug[:60]}_{suffix}"
+        suffix += 1
+
+    role = Role(
+        company_id=actor.company_id,
+        name=name,
+        slug=slug,
+        description=description.strip(),
+        is_system=False,
+        is_locked=False,
+    )
+    session.add(role)
+    await session.flush()
+    for permission in permissions.values():
+        session.add(RolePermission(role_id=role.id, permission_id=permission.id))
+    await record_event(
+        session,
+        action="role.create",
+        outcome=AuditOutcome.SUCCESS,
+        actor_user_id=actor.id,
+        company_id=actor.company_id,
+        resource_type="role",
+        resource_id=role.id,
+        meta=meta,
+        details={"name": name, "permissions": sorted(permission_keys)},
+    )
+    await session.commit()
+    return await get_role(session, actor.company_id, role.id)
+
+
+async def update_role(
+    session: AsyncSession,
+    *,
+    actor: User,
+    principal: Principal,
+    role_id: uuid.UUID,
+    name: str | None,
+    description: str | None,
+    permission_keys: set[str] | None,
+    meta: RequestMeta,
+) -> RoleView:
+    view = await get_role(session, actor.company_id, role_id)
+    role = view.role
+    if role.is_locked:
+        raise PermissionDeniedError("The Super Admin role cannot be edited.", code="role_locked")
+    current = set(view.permission_keys)
+    # Editing a role changes what its holders can do, so the editor must hold
+    # every permission involved: those being kept, added and removed.
+    _ensure_holds_company_wide(principal, current | (permission_keys or set()))
+
+    details: dict[str, object] = {}
+    if name is not None and name.strip() != role.name:
+        await _ensure_role_name_free(session, actor.company_id, name.strip(), exclude=role.id)
+        details["name"] = {"from": role.name, "to": name.strip()}
+        role.name = name.strip()
+    if description is not None and description.strip() != role.description:
+        details["description_changed"] = True
+        role.description = description.strip()
+    if permission_keys is not None and permission_keys != current:
+        rows = await _permission_rows(session, permission_keys)
+        added = permission_keys - current
+        removed = current - permission_keys
+        if removed:
+            removed_ids = select(Permission.id).where(Permission.key.in_(removed))
+            await session.execute(
+                delete(RolePermission).where(
+                    RolePermission.role_id == role.id,
+                    RolePermission.permission_id.in_(removed_ids),
+                )
+            )
+        for key in added:
+            session.add(RolePermission(role_id=role.id, permission_id=rows[key].id))
+        details["permissions_added"] = sorted(added)
+        details["permissions_removed"] = sorted(removed)
+
+    if details:
+        await record_event(
+            session,
+            action="role.update",
+            outcome=AuditOutcome.SUCCESS,
+            actor_user_id=actor.id,
+            company_id=actor.company_id,
+            resource_type="role",
+            resource_id=role.id,
+            meta=meta,
+            details={**details, "assignment_count": view.assignment_count},
+        )
+        await session.commit()
+    return await get_role(session, actor.company_id, role.id)
+
+
+async def delete_role(
+    session: AsyncSession,
+    *,
+    actor: User,
+    principal: Principal,
+    role_id: uuid.UUID,
+    meta: RequestMeta,
+) -> None:
+    view = await get_role(session, actor.company_id, role_id)
+    if view.role.is_system:
+        raise PermissionDeniedError(
+            "Starter roles can be edited but not deleted.", code="role_is_system"
+        )
+    if view.assignment_count:
+        raise ConflictError(
+            "Remove this role from all users before deleting it.", code="role_in_use"
+        )
+    _ensure_holds_company_wide(principal, set(view.permission_keys))
+    await session.delete(view.role)
+    await record_event(
+        session,
+        action="role.delete",
+        outcome=AuditOutcome.SUCCESS,
+        actor_user_id=actor.id,
+        company_id=actor.company_id,
+        resource_type="role",
+        resource_id=role_id,
+        meta=meta,
+        details={"name": view.role.name, "permissions": view.permission_keys},
     )
     await session.commit()
 

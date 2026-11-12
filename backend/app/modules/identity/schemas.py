@@ -22,6 +22,7 @@ class UserSummary(BaseModel):
     full_name: str
     status: str
     last_login_at: datetime | None = None
+    must_change_password: bool = False
 
 
 class CompanySummary(BaseModel):
