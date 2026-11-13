@@ -39,8 +39,10 @@ async def _detail(db: AsyncSession, auth: AuthContext, product: Product) -> Prod
         {
             **{c.key: getattr(product, c.key) for c in Product.__table__.columns},
             "owner": _user_ref(owners.get(product.owner_user_id)),
+            "is_public": service.is_public(product),
             "can_update": is_allowed(auth.principal, "product.update", context),
             "can_manage": is_allowed(auth.principal, "product.manage", context),
+            "can_publish": is_allowed(auth.principal, "product.approve", context),
         }
     )
 
@@ -125,6 +127,42 @@ async def change_status(
         product_id=product_id,
         status=payload.status,
         reason=payload.reason,
+        meta=meta,
+    )
+    return await _detail(db, auth, product)
+
+
+@router.post("/{product_id}/publish", response_model=ProductDetail)
+async def publish_product(
+    product_id: uuid.UUID,
+    auth: AuthContext = Depends(require_permission("product.approve")),
+    db: AsyncSession = Depends(get_db),
+    meta: RequestMeta = Depends(get_request_meta),
+) -> ProductDetail:
+    product = await service.set_published(
+        db,
+        actor=auth.user,
+        principal=auth.principal,
+        product_id=product_id,
+        published=True,
+        meta=meta,
+    )
+    return await _detail(db, auth, product)
+
+
+@router.post("/{product_id}/unpublish", response_model=ProductDetail)
+async def unpublish_product(
+    product_id: uuid.UUID,
+    auth: AuthContext = Depends(require_permission("product.approve")),
+    db: AsyncSession = Depends(get_db),
+    meta: RequestMeta = Depends(get_request_meta),
+) -> ProductDetail:
+    product = await service.set_published(
+        db,
+        actor=auth.user,
+        principal=auth.principal,
+        product_id=product_id,
+        published=False,
         meta=meta,
     )
     return await _detail(db, auth, product)

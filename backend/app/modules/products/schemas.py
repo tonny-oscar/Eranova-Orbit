@@ -40,6 +40,11 @@ class PricingPlan(BaseModel):
     notes: str | None = Field(default=None, max_length=300)
 
 
+class ProductFeature(BaseModel):
+    title: str = Field(min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=300)
+
+
 class ProductFields(BaseModel):
     category: str | None = Field(default=None, max_length=60)
     tagline: str | None = Field(default=None, max_length=200)
@@ -57,6 +62,7 @@ class ProductFields(BaseModel):
     analytics_property_id: str | None = Field(default=None, max_length=120)
     launch_date: date | None = None
     pricing: list[PricingPlan] = Field(default_factory=list, max_length=20)
+    features: list[ProductFeature] = Field(default_factory=list, max_length=20)
 
 
 class ProductCreate(ProductFields):
@@ -86,6 +92,7 @@ class ProductUpdate(BaseModel):
     analytics_property_id: str | None = Field(default=None, max_length=120)
     launch_date: date | None = None
     pricing: list[PricingPlan] | None = Field(default=None, max_length=20)
+    features: list[ProductFeature] | None = Field(default=None, max_length=20)
 
 
 class StatusChange(BaseModel):
@@ -111,6 +118,7 @@ class ProductSummary(BaseModel):
     details_confirmed: bool
     website_url: str | None
     logo_url: str | None
+    is_published: bool
     owner: UserRef | None = None
     updated_at: datetime
 
@@ -126,9 +134,31 @@ class ProductDetail(ProductSummary):
     analytics_property_id: str | None
     launch_date: date | None
     pricing: list[dict]
+    features: list[dict]
+    published_at: datetime | None
+    is_public: bool = False
     created_at: datetime
     can_update: bool = False
     can_manage: bool = False
+    can_publish: bool = False
+
+
+class PublicProduct(BaseModel):
+    """Marketplace view: only fields safe and intended for the public."""
+
+    name: str
+    slug: str
+    category: str | None
+    tagline: str | None
+    description: str
+    lifecycle_status: str
+    logo_url: str | None
+    website_url: str | None
+    docs_url: str | None
+    status_page_url: str | None
+    support_email: str | None
+    features: list[dict]
+    pricing: list[dict]
 
 
 class MemberAdd(BaseModel):

@@ -46,6 +46,8 @@ RESOURCES: dict[str, tuple[str, tuple[Action, ...]]] = {
     "document": ("documents", ALL_ACTIONS),
     "integration": ("integrations", ALL_ACTIONS),
     "report": ("reports", (Action.READ, Action.CREATE, Action.EXPORT, Action.MANAGE)),
+    # Public website content; "approve" publishes to the public site.
+    "content": ("website content", (Action.READ, Action.UPDATE, Action.APPROVE)),
     # Platform administration
     "user": ("user accounts", (*CRUD, Action.MANAGE)),
     "role": ("roles and role assignments", (*CRUD, Action.MANAGE)),
@@ -143,6 +145,8 @@ STARTER_ROLES: tuple[StarterRole, ...] = (
             + _keys("report", Action.CREATE, Action.EXPORT)
             + _keys("project", Action.APPROVE)
             + _keys("invoice", Action.APPROVE)
+            + _keys("product", Action.APPROVE)
+            + _keys("content", Action.APPROVE)
             + _read_all(["user", "role", "settings"])
         ),
     ),
@@ -212,6 +216,7 @@ STARTER_ROLES: tuple[StarterRole, ...] = (
         tuple(
             _keys("campaign", Action.READ, Action.CREATE, Action.UPDATE)
             + _keys("document", Action.READ, Action.CREATE)
+            + _keys("content", Action.READ, Action.UPDATE)
             + _read_all(["product", "lead", "report"])
         ),
     ),

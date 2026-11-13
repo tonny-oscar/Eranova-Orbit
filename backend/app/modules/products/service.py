@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ConflictError, NotFoundError, PermissionDeniedError
 from app.core.request_meta import RequestMeta
+from app.db.base import utc_now
 from app.modules.audit.models import AuditOutcome
 from app.modules.audit.service import record_event
 from app.modules.authorization.policy import (
@@ -17,6 +18,7 @@ from app.modules.authorization.policy import (
 )
 from app.modules.identity.models import User, UserStatus
 from app.modules.products.models import (
+    PUBLIC_STATUSES,
     LifecycleStatus,
     Product,
     ProductMember,
@@ -161,6 +163,7 @@ async def create_product(
         raise PermissionDeniedError("Registering products requires company-wide access.")
     data = payload.model_dump()
     data["pricing"] = [plan.model_dump(mode="json") for plan in payload.pricing]
+    data["features"] = [feature.model_dump(mode="json") for feature in payload.features]
     data["name"] = data["name"].strip()
     await _ensure_unique(session, actor.company_id, name=data["name"], slug=data["slug"])
     if payload.owner_user_id:
@@ -207,11 +210,13 @@ async def update_product(
     changes = payload.model_dump(exclude_unset=True)
     if payload.pricing is not None and "pricing" in changes:
         changes["pricing"] = [plan.model_dump(mode="json") for plan in payload.pricing]
+    if payload.features is not None and "features" in changes:
+        changes["features"] = [feature.model_dump(mode="json") for feature in payload.features]
     if changes.get("owner_user_id"):
         await _ensure_active_user(session, actor.company_id, changes["owner_user_id"])
     if changes.get("name"):
         changes["name"] = changes["name"].strip()
-    for required in ("name", "slug", "description", "details_confirmed", "pricing"):
+    for required in ("name", "slug", "description", "details_confirmed", "pricing", "features"):
         if required in changes and changes[required] is None:
             raise AppError(f"'{required}' cannot be empty.", code="invalid_field")
     await _ensure_unique(
@@ -389,6 +394,98 @@ async def remove_member(
         details={"user_id": str(member.user_id)},
     )
     await session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Marketplace publishing
+# ---------------------------------------------------------------------------
+
+
+def is_public(product: Product) -> bool:
+    return (
+        product.is_published
+        and product.details_confirmed
+        and product.lifecycle_status in PUBLIC_STATUSES
+    )
+
+
+def public_conditions(company_id: uuid.UUID) -> list[ColumnElement[bool]]:
+    return [
+        Product.company_id == company_id,
+        Product.is_published.is_(True),
+        Product.details_confirmed.is_(True),
+        Product.lifecycle_status.in_(PUBLIC_STATUSES),
+    ]
+
+
+async def set_published(
+    session: AsyncSession,
+    *,
+    actor: User,
+    principal: Principal,
+    product_id: uuid.UUID,
+    published: bool,
+    meta: RequestMeta,
+) -> Product:
+    product = await get_product_for(session, principal, product_id, "product.approve")
+    if published:
+        problems = []
+        if not product.details_confirmed:
+            problems.append("Confirm the product details first.")
+        if product.lifecycle_status not in PUBLIC_STATUSES:
+            problems.append("Only beta, live or maintenance products can be published.")
+        if not product.description.strip():
+            problems.append("Add a description before publishing.")
+        if problems:
+            raise AppError(
+                "This product is not ready to publish.",
+                code="not_publishable",
+                details=[{"field": "is_published", "message": p} for p in problems],
+            )
+    if product.is_published == published:
+        return product
+    product.is_published = published
+    product.published_at = utc_now() if published else None
+    await record_event(
+        session,
+        action="product.publish" if published else "product.unpublish",
+        outcome=AuditOutcome.SUCCESS,
+        actor_user_id=actor.id,
+        company_id=actor.company_id,
+        resource_type="product",
+        resource_id=product.id,
+        meta=meta,
+    )
+    await session.commit()
+    await session.refresh(product)
+    return product
+
+
+async def list_public_products(
+    session: AsyncSession, company_id: uuid.UUID, *, q: str | None, category: str | None
+) -> list[Product]:
+    conditions = public_conditions(company_id)
+    if category:
+        conditions.append(func.lower(Product.category) == category.strip().lower())
+    if q and q.strip():
+        pattern = f"%{escape_like(q.strip().lower())}%"
+        conditions.append(
+            or_(
+                func.lower(Product.name).like(pattern, escape="\\"),
+                func.lower(func.coalesce(Product.tagline, "")).like(pattern, escape="\\"),
+                func.lower(func.coalesce(Product.category, "")).like(pattern, escape="\\"),
+            )
+        )
+    return list(await session.scalars(select(Product).where(*conditions).order_by(Product.name)))
+
+
+async def get_public_product(session: AsyncSession, company_id: uuid.UUID, slug: str) -> Product:
+    product = await session.scalar(
+        select(Product).where(*public_conditions(company_id), Product.slug == slug)
+    )
+    if product is None:
+        raise NotFoundError("Product not found.")
+    return product
 
 
 async def product_exists(

@@ -12,7 +12,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -31,6 +33,7 @@ class LifecycleStatus(StrEnum):
 
 
 LIFECYCLE_VALUES = tuple(s.value for s in LifecycleStatus)
+PUBLIC_STATUSES = (LifecycleStatus.BETA, LifecycleStatus.LIVE, LifecycleStatus.MAINTENANCE)
 _LIFECYCLE_SQL = ", ".join(f"'{v}'" for v in LIFECYCLE_VALUES)
 
 
@@ -77,6 +80,14 @@ class Product(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     analytics_property_id: Mapped[str | None] = mapped_column(String(120))
     launch_date: Mapped[date | None] = mapped_column(Date)
     pricing: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    features: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
+
+    # Marketplace visibility. A product is public only when published, confirmed
+    # and in a public lifecycle status (see PUBLIC_STATUSES).
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    published_at: Mapped[datetime | None]
 
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
