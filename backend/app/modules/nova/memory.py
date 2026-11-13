@@ -254,6 +254,84 @@ async def record_feedback(
     return feedback
 
 
+# --- Continuous learning -----------------------------------------------------------------
+
+# First-person cues (English and Kiswahili) that suggest the user said something about themselves.
+_SELF_CUE = re.compile(
+    r"\b(i|i'm|im|i've|i'd|my|mine|we|our|mimi|yangu|wangu|napenda|ninapenda|nina|sisi)\b",
+    re.IGNORECASE,
+)
+REFLECT_PROMPT = (
+    "You maintain a short memory about ONE user of a company operations app. Read their latest "
+    "messages and list at most 3 NEW lasting facts, preferences, goals or answer-style wishes "
+    "about the user themselves (role, products they own, how they like answers, recurring "
+    "priorities, working hours, language). Ignore one-off requests, questions, company data and "
+    "anything about other people. Never include passwords, codes, money/payment details, health, "
+    "religion, politics or other sensitive personal data. Do not repeat what is already known. "
+    'Reply with JSON only: {"memories": [{"content": "...", "category": '
+    '"fact|preference|goal|style"}]} or {"memories": []}.'
+)
+
+
+def worth_reflecting(text: str) -> bool:
+    return len(text) >= 12 and bool(_SELF_CUE.search(text))
+
+
+def _parse_memories(raw: str) -> list[dict]:
+    import json
+
+    match = re.search(r"\{.*\}", raw or "", re.DOTALL)
+    if not match:
+        return []
+    try:
+        data = json.loads(match.group(0))
+    except ValueError:
+        return []
+    items = data.get("memories") if isinstance(data, dict) else None
+    return [m for m in items or [] if isinstance(m, dict) and isinstance(m.get("content"), str)][:3]
+
+
+async def reflect(
+    session: AsyncSession, user: User, provider, recent_user_messages: list[str]
+) -> tuple[list[str], int, int]:
+    """Ask the model what it learned about the user.
+
+    Returns (saved notes, prompt tokens, completion tokens).
+    """
+    known = [m.content for m in await list_memories(session, user) if m.active][:40]
+    known_text = "\n".join(f"- {k}" for k in known) or "(nothing)"
+    conversation = "\n".join(f"- {t[:600]}" for t in recent_user_messages[-4:])
+    completion = await provider.complete(
+        [
+            {"role": "system", "content": REFLECT_PROMPT},
+            {
+                "role": "user",
+                "content": f"Already known:\n{known_text}\n\n"
+                f"Latest messages from the user:\n{conversation}",
+            },
+        ],
+        [],
+        max_tokens=250,
+        temperature=0,
+    )
+    saved = []
+    for item in _parse_memories(completion.content):
+        category = (
+            item.get("category")
+            if item.get("category") in ("fact", "preference", "goal", "style")
+            else "fact"
+        )
+        try:
+            note, created = await add_memory(
+                session, user, item["content"][:500], category, "learned"
+            )
+        except AppError:
+            continue
+        if created:
+            saved.append(note.content)
+    return saved, completion.prompt_tokens, completion.completion_tokens
+
+
 # --- Prompt context ------------------------------------------------------------------------
 
 _STYLE = {

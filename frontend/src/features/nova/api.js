@@ -88,6 +88,12 @@ export function useSendMessage() {
   })
 }
 
+export function useTestNova() {
+  return useMutation({
+    mutationFn: () => apiRequest('/api/v1/nova/test', { method: 'POST' }),
+  })
+}
+
 export function useNovaProfile() {
   return useQuery({
     queryKey: ['nova', 'profile'],

@@ -2336,6 +2336,11 @@ export function createExtra({ getState, page, matches, audit, DemoError, personR
       shares_contact_details: false,
       can_view_company_usage: true,
     })),
+    R('POST', 'nova/test', () => ({
+      ok: false,
+      mode: 'basic',
+      message: 'The demo preview has no AI model. Run the full app after `npm run nova:setup`.',
+    })),
     R('GET', 'nova/conversations', () =>
       [...N().conversations].sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
     ),

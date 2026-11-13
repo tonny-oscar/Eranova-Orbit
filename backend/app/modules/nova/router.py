@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import AuthContext, get_auth_context, get_request_meta
+from app.api.deps import AuthContext, get_auth_context, get_request_meta, require_permission
 from app.core.request_meta import RequestMeta
 from app.db.session import get_db
 from app.modules.crm.service import lookup
@@ -114,6 +114,11 @@ async def _approvals_out(db, auth: AuthContext, rows: list[NovaApproval]) -> lis
 @router.get("/status")
 async def status(auth: AuthContext = Depends(get_auth_context)) -> dict:
     return service.status_info(auth.principal)
+
+
+@router.post("/test")
+async def test_connection(_: AuthContext = Depends(require_permission("nova.manage"))) -> dict:
+    return await service.test_provider()
 
 
 @router.get("/conversations", response_model=list[ConversationOut])

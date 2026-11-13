@@ -37,6 +37,7 @@ import {
   useNovaStatus,
   useNovaUsage,
   useSendMessage,
+  useTestNova,
 } from './api'
 import { ApprovalCard } from './ApprovalCard'
 import { useSpeechInput, useSpeechOutput } from './useVoice'
@@ -408,6 +409,7 @@ export function NovaPage() {
   const conversationId = params.get('c')
   const status = useNovaStatus()
   const profile = useNovaProfile()
+  const test = useTestNova()
   const conversations = useConversations()
   const remove = useDeleteConversation()
   const pendingApprovals = useApprovals('pending')
@@ -479,6 +481,21 @@ export function NovaPage() {
             <Bot className="size-5 text-accent" aria-hidden="true" /> NOVA
           </h1>
           <ModeBadge status={status.data} />
+          {status.data?.can_view_company_usage && (
+            <Button
+              variant="ghost"
+              size="sm"
+              loading={test.isPending}
+              onClick={() => test.mutate()}
+              title={test.data?.message}
+            >
+              {test.data
+                ? test.data.ok
+                  ? '✓ AI connected'
+                  : '✗ Not connected'
+                : 'Test AI connection'}
+            </Button>
+          )}
           <div className="ml-auto flex items-center gap-2">
             {voiceOut.supported && (
               <Button
@@ -522,9 +539,9 @@ export function NovaPage() {
               </p>
               {status.data?.mode === 'basic' && (
                 <Alert title="Basic mode">
-                  No AI model is configured yet, so NOVA answers look-ups straight from Orbit
-                  records. An administrator can enable full NOVA by setting NOVA_PROVIDER,
-                  NOVA_MODEL and NOVA_API_KEY on the server.
+                  No AI model is connected yet, so NOVA only understands simple look-ups and
+                  &quot;remember…&quot; requests. To let it understand everything you say, run{' '}
+                  <code>npm run nova:setup</code> and restart Orbit.
                 </Alert>
               )}
             </div>

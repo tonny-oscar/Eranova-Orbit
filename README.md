@@ -86,6 +86,19 @@ render.yaml         Render blueprint (API + database)
 > folder such as `C:\dev\eranova-orbit` before creating the Git repository is strongly
 > recommended.
 
+## Talking to NOVA
+
+1. Connect an AI model (once): `npm run nova:setup`. Pick a provider (Groq is free and fast)
+   and paste your API key; it is saved only in `backend/.env`, which git ignores.
+2. Start Orbit: `npm run dev:sample` and open http://localhost:5173/app/nova (or :5174).
+3. Type or hold **Hold to talk** (Chrome/Edge; allow the microphone), check the transcript,
+   then send. Turn on **Read replies aloud** to hear answers.
+
+NOVA keeps learning: it saves lasting facts and preferences you mention ("I manage ShulePoa",
+"I prefer short answers"), learns from 👎 feedback, and after each reply notes anything new
+about you. See and edit it all under **NOVA → About you**, or switch learning off there.
+Administrators can press **Test AI connection** on the NOVA page.
+
 ## Local development
 
 ### One-time setup

@@ -90,6 +90,43 @@ async def test_model_is_personalised_and_learns_within_limits(client, make_user,
     assert "turned learning off" in provider.calls[0]["messages"][0]["content"]
 
 
+async def test_nova_keeps_learning_from_conversation(client, make_user, use_model, db):  # noqa: F811
+    h, cid = await _start(client, make_user)
+    use_model(
+        answer("Got it, Tonny."),
+        answer(
+            'Sure: {"memories": [{"content": "Is the CEO of Eranova", "category": "fact"}, '
+            '{"content": "Wants a weekly summary every Monday", "category": "preference"}, '
+            '{"content": "Password is hunter2", "category": "fact"}]}'
+        ),
+    )
+    reply = await _ask(client, h, cid, "Mimi ni CEO and I want a weekly summary every Monday")
+    assert reply["message"]["content"] == "Got it, Tonny."
+    assert any(link["href"] == "/app/nova/memory" for link in reply["message"]["links"])
+    notes = {m.content: m.source for m in await db.scalars(select(NovaMemory))}
+    assert notes == {
+        "Is the CEO of Eranova": "learned",
+        "Wants a weekly summary every Monday": "learned",
+    }
+
+    use_model(answer("Habari."), RuntimeError("model down"))
+    calm = await _ask(client, h, cid, "I am in the office until 6pm")
+    assert calm["message"]["status"] == "ok"
+
+    use_model(answer("Here is the summary."))
+    await _ask(client, h, cid, "show the business summary")  # no first-person cue: no extra call
+
+
+async def test_connection_test_reports_basic_mode(client, make_user):
+    await _start(client, make_user)
+    result = (
+        await client.post(
+            "/api/v1/nova/test", headers={"X-CSRF-Token": await login(client, "root@eranova.co.ke")}
+        )
+    ).json()
+    assert result["ok"] is False and result["mode"] == "basic"
+
+
 async def test_feedback_teaches_style_and_memory_is_private(client, make_user):
     h, cid = await _start(client, make_user)
     reply = await _ask(client, h, cid, "business summary")

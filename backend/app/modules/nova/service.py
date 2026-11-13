@@ -116,6 +116,12 @@ async def _system_prompt(session, user: User, principal: Principal, tools: list[
         "5. Label estimates and recommendations as such, separate from confirmed figures.\n"
         "6. Do not make hiring, firing, promotion or disciplinary decisions.\n"
         "7. Mention record names so the user can open the linked records.\n"
+        "8. Understand informal English, Kiswahili and Sheng, typos and voice transcripts. "
+        "Reply in the language the user writes in unless their preferences say otherwise.\n"
+        "9. If a request is ambiguous or could change records in more than one way, ask one "
+        "short clarifying question instead of guessing.\n"
+        "10. Use what you remember about the user to tailor answers, and keep learning: when "
+        "they correct you, save the correction with remember.\n"
         f"Available tools: {', '.join(t.name for t in tools)}.\n\n"
         f"About this user:\n{await memory.prompt_context(session, user)}"
     )
@@ -430,6 +436,14 @@ async def _model_turn(session, ctx, convo, payload, provider: Provider, settings
     except ProviderError as exc:
         status = "error"
         content = f"NOVA's AI provider failed: {exc}. Nothing further was done."
+    if status == "ok" and memory.worth_reflecting(payload.content):
+        learned = await _learn_from_turn(session, ctx.user, convo.id, provider)
+        if learned:
+            notes, extra_prompt, extra_completion = learned
+            prompt_tokens += extra_prompt
+            completion_tokens += extra_completion
+            if notes:
+                links.append({"label": "What NOVA learned", "href": "/app/nova/memory"})
     seen, unique_links = set(), []
     for link in links:
         if link["href"] not in seen:
@@ -452,6 +466,33 @@ async def _model_turn(session, ctx, convo, payload, provider: Provider, settings
     session.add(message)
     await session.flush()
     return {"message": message, "executions": executions}
+
+
+async def _learn_from_turn(session, user: User, conversation_id, provider: Provider):
+    """Continuous learning: after a reply, note lasting facts about the user.
+
+    Best effort only. A failure here never affects the answer the user sees.
+    """
+    if not (await memory.get_profile(session, user)).learning_enabled:
+        return None
+    recent = list(
+        await session.scalars(
+            select(NovaMessage.content)
+            .where(NovaMessage.conversation_id == conversation_id, NovaMessage.role == "user")
+            .order_by(NovaMessage.created_at.desc())
+            .limit(4)
+        )
+    )
+    savepoint = await session.begin_nested()
+    try:
+        result = await memory.reflect(session, user, provider, list(reversed(recent)))
+    except Exception:
+        if savepoint.is_active:
+            await savepoint.rollback()
+        return None
+    if savepoint.is_active:
+        await savepoint.commit()
+    return result
 
 
 # --- Approvals -----------------------------------------------------------------------
@@ -715,6 +756,32 @@ async def purge_old_conversations(session) -> int:
     )
     await session.commit()
     return result.rowcount or 0
+
+
+async def test_provider() -> dict:
+    provider = get_provider(get_settings())
+    if provider is None:
+        return {
+            "ok": False,
+            "mode": "basic",
+            "message": "No AI model is configured (NOVA_PROVIDER=none).",
+        }
+    try:
+        completion = await provider.complete(
+            [{"role": "user", "content": "Reply with the single word: ready"}],
+            [],
+            max_tokens=10,
+            temperature=0,
+        )
+    except ProviderError as exc:
+        return {"ok": False, "mode": "ai", "model": provider.model, "message": str(exc)}
+    return {
+        "ok": True,
+        "mode": "ai",
+        "model": completion.model or provider.model,
+        "latency_ms": completion.latency_ms,
+        "message": f"Connected. The model replied in {completion.latency_ms / 1000:.1f} s.",
+    }
 
 
 def status_info(principal: Principal) -> dict:
