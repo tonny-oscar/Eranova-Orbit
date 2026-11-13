@@ -3,7 +3,7 @@ import os
 # Settings must be in place before any app module reads them.
 os.environ["ENVIRONMENT"] = "test"
 os.environ["DATABASE_URL"] = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql+asyncpg://orbit:orbit_local_only@localhost:5433/orbit_test"
+    "TEST_DATABASE_URL", "postgresql+asyncpg://orbit@127.0.0.1:5433/orbit_test"
 )
 os.environ["SECRET_KEY"] = "test-secret-key-for-automated-tests-only-0123456789"
 os.environ["CORS_ALLOWED_ORIGINS"] = "http://localhost:5173"

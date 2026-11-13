@@ -13,7 +13,7 @@ py -3.12 -m venv .venv
 pip install -r requirements-dev.txt
 Copy-Item .env.example .env
 # Set SECRET_KEY in .env (generate with: python -c "import secrets; print(secrets.token_urlsafe(48))")
-# Start PostgreSQL from the repo root: docker compose up -d postgres
+python -m scripts.dev_db start   # local PostgreSQL, no Docker
 alembic upgrade head
 python -m app.cli bootstrap
 python -m app.cli create-superadmin

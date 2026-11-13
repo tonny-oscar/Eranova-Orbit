@@ -1,12 +1,14 @@
 -r requirements.txt
 
-certifi==2026.10.23
 colorama==0.4.6
-httpcore==1.0.9
-httpx==0.28.1
+fasteners==0.20
 iniconfig==2.3.1
 packaging==26.3
+# Bundles PostgreSQL 16 binaries for local development (scripts/dev_db.py); no Docker needed.
+pgserver==0.1.4
+platformdirs==4.14.5
 pluggy==1.7.0
+psutil==7.2.2
 Pygments==2.21.0
 pytest==9.2.0
 pytest-asyncio==1.5.0

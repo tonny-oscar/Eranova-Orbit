@@ -20,6 +20,21 @@ export async function login(credentials) {
   return me
 }
 
+/** Local development only: the API reports whether sign-in can be skipped. */
+export async function fetchDevLoginStatus({ signal } = {}) {
+  try {
+    return await apiRequest('/api/v1/auth/dev-login', { signal })
+  } catch {
+    return { enabled: false }
+  }
+}
+
+export async function devLogin() {
+  const me = await apiRequest('/api/v1/auth/dev-login', { method: 'POST' })
+  setCsrfToken(me.csrf_token)
+  return me
+}
+
 export async function logout() {
   try {
     await apiRequest('/api/v1/auth/logout', { method: 'POST' })

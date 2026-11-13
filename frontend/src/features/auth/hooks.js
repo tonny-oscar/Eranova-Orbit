@@ -1,6 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ME_QUERY_KEY } from '@/app/queryClient'
-import { changePassword, fetchMe, login, logout } from './api'
+import { changePassword, devLogin, fetchDevLoginStatus, fetchMe, login, logout } from './api'
+
+export function useDevLoginStatus({ enabled = true } = {}) {
+  return useQuery({
+    queryKey: ['auth', 'dev-login'],
+    queryFn: ({ signal }) => fetchDevLoginStatus({ signal }),
+    enabled,
+    staleTime: Infinity,
+    retry: false,
+  })
+}
+
+export function useDevLogin() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: devLogin,
+    onSuccess: (me) => queryClient.setQueryData(ME_QUERY_KEY, me),
+  })
+}
 
 export function useMe() {
   return useQuery({

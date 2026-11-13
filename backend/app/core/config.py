@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     login_max_failures_per_email: int = Field(default=5, ge=1)
     login_max_failures_per_ip: int = Field(default=20, ge=1)
 
+    # Local development convenience only; rejected in every other environment.
+    dev_auto_login: bool = False
+
     company_name: str = "Eranova Technologies"
     company_slug: str = "eranova"
     company_timezone: str = "Africa/Nairobi"
@@ -71,6 +74,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _enforce_deployed_safety(self) -> "Settings":
+        if self.dev_auto_login and self.environment != "local":
+            raise ValueError("DEV_AUTO_LOGIN may only be enabled when ENVIRONMENT=local")
         if self.is_deployed:
             lowered = self.secret_key.lower()
             if any(marker in lowered for marker in _INSECURE_SECRET_MARKERS):

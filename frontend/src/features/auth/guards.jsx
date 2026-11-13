@@ -1,10 +1,11 @@
 import { ShieldOff } from 'lucide-react'
+import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { LogoMark } from '@/components/brand/Logo'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states'
 import { ChangePasswordForm } from '@/features/settings/ChangePasswordForm'
-import { useMe, usePermissions } from './hooks'
+import { useDevLogin, useDevLoginStatus, useMe, usePermissions } from './hooks'
 
 function ForcedPasswordChange({ me }) {
   return (
@@ -37,8 +38,17 @@ function ForcedPasswordChange({ me }) {
 export function RequireAuth() {
   const location = useLocation()
   const { data: me, isPending, isError, error, refetch } = useMe()
+  const devStatus = useDevLoginStatus({ enabled: !isPending && !me })
+  const devLogin = useDevLogin()
+  const autoSignIn = !me && devStatus.data?.enabled && !devLogin.isError
 
-  if (isPending) return <LoadingState label="Checking your session…" className="min-h-dvh" />
+  useEffect(() => {
+    if (autoSignIn && devLogin.isIdle) devLogin.mutate()
+  }, [autoSignIn, devLogin])
+
+  if (isPending || (!me && devStatus.isPending) || autoSignIn) {
+    return <LoadingState label="Checking your session…" className="min-h-dvh" />
+  }
   if (isError) {
     return (
       <div className="grid min-h-dvh place-items-center p-6">

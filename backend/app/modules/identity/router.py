@@ -9,7 +9,7 @@ from app.db.session import get_db
 from app.modules.authorization.policy import Principal
 from app.modules.authorization.service import list_user_assignments, load_principal
 from app.modules.company.models import Company
-from app.modules.identity import service
+from app.modules.identity import dev_login, service
 from app.modules.identity.models import User, UserSession
 from app.modules.identity.schemas import (
     ChangePasswordRequest,
@@ -89,6 +89,31 @@ async def login(
     result = await service.authenticate(
         db, settings, email=payload.email, password=payload.password, meta=meta
     )
+    _set_session_cookie(response, settings, result.token)
+    principal = await load_principal(db, result.user)
+    return await _build_me(
+        db,
+        settings,
+        user=result.user,
+        user_session=result.session,
+        token=result.token,
+        principal=principal,
+    )
+
+
+@router.get("/dev-login")
+async def dev_login_status(settings: Settings = Depends(get_settings)) -> dict:
+    return {"enabled": dev_login.is_enabled(settings)}
+
+
+@router.post("/dev-login", response_model=MeResponse)
+async def dev_login_endpoint(
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    meta: RequestMeta = Depends(get_request_meta),
+) -> MeResponse:
+    result = await dev_login.dev_login(db, settings, meta)
     _set_session_cookie(response, settings, result.token)
     principal = await load_principal(db, result.user)
     return await _build_me(

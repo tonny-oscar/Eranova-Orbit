@@ -4,7 +4,7 @@
 
 | Environment | Frontend | API | Database | Notes |
 | --- | --- | --- | --- | --- |
-| Local | Vite dev server :5173 | uvicorn :8000 | Docker `orbit_dev` (:5433) | `.env` files, never committed |
+| Local | Vite dev server :5173 | uvicorn :8000 | Local PostgreSQL via `scripts/dev_db.py` (`orbit_dev`, :5433) | `.env` files, never committed; `DEV_AUTO_LOGIN` allowed only here |
 | Staging / preview | Vercel preview deployments | Render `orbit-api-staging` | Render `orbit-db-staging` | Own secrets; never points at production data |
 | Production | Vercel production | Render `orbit-api-production` | Render `orbit-db-production` | Protected branch, paid plans |
 

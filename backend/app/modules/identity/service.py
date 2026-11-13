@@ -141,6 +141,16 @@ async def authenticate(
     if user.password_hash and password_needs_rehash(user.password_hash):
         user.password_hash = hash_password(password)
 
+    session.add(LoginAttempt(email=email, ip_address=meta.ip_address, succeeded=True))
+    return await start_session(
+        session, settings, user=user, meta=meta, action="auth.login.succeeded"
+    )
+
+
+async def start_session(
+    session: AsyncSession, settings: Settings, *, user: User, meta: RequestMeta, action: str
+) -> LoginResult:
+    now = utcnow()
     token = generate_session_token()
     user_session = UserSession(
         user_id=user.id,
@@ -152,11 +162,10 @@ async def authenticate(
     )
     session.add(user_session)
     user.last_login_at = now
-    session.add(LoginAttempt(email=email, ip_address=meta.ip_address, succeeded=True))
     await session.flush()
     await record_event(
         session,
-        action="auth.login.succeeded",
+        action=action,
         outcome=AuditOutcome.SUCCESS,
         actor_user_id=user.id,
         company_id=user.company_id,

@@ -36,7 +36,7 @@ in-memory sample data, labelled by a banner. Nothing is saved. See
 | Website content | Staff editor with drafts and approval-gated publishing; products publish only when confirmed, public-status and described |
 | Leads | Every valid enquiry creates or updates a lead (consent + privacy-notice version, UTM attribution, spam protection); staff lead list and detail |
 | Audit | Append-only audit log (database trigger blocks UPDATE/DELETE/TRUNCATE) for sign-ins, denials and every privileged change |
-| Delivery | Docker Compose PostgreSQL, CI workflow, Render blueprint, Vercel config, ADRs and operations docs |
+| Delivery | Docker-free local PostgreSQL and one-command dev runner, CI workflow, Render blueprint, Vercel config, ADRs and operations docs |
 
 Full CRM (pipelines, activities, customers), projects, marketing, analytics, support,
 finance and NOVA arrive in later phases (see the phase list in the master brief). The
@@ -55,17 +55,15 @@ docs/
   adr/              Architecture decision records
   architecture/     Current system overview
   operations/       Local setup, deployment, runbooks
-infra/postgres/     Local database init scripts
-docker-compose.yml  Local PostgreSQL 16
+scripts/            One-command dev runner and local database helpers
 render.yaml         Render blueprint (API + database)
 ```
 
 ## Prerequisites (Windows)
 
 - Python 3.12, Node.js 22+ (24 recommended), Git
-- Docker Desktop with WSL 2 (for local PostgreSQL). If Docker reports
-  "WSL 2 kernel file is not found", run `wsl --update` in an **Administrator** PowerShell
-  and restart Docker Desktop.
+- **No Docker and no PostgreSQL installation needed.** A local PostgreSQL 16 ships inside
+  the `pgserver` Python package (a dev dependency) and runs from your user profile.
 
 > **OneDrive note:** this folder is inside OneDrive. Syncing `node_modules`, `.venv` and
 > `.git` causes slow installs and file-lock errors. Moving the project to a non-synced
@@ -74,29 +72,41 @@ render.yaml         Render blueprint (API + database)
 
 ## Local development
 
-### 1. Start PostgreSQL
-
-```powershell
-docker compose up -d postgres
-```
-
-This creates `orbit_dev` (development) and `orbit_test` (automated tests) on port **5433**.
-
-### 2. Backend
-
-PowerShell:
+### One-time setup
 
 ```powershell
 cd backend
 py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+cd ..
+npm install
+```
+
+### Every day: one command
+
+```powershell
+npm run dev:full
+```
+
+This starts the local database, creates `backend\.env` (with a random local secret) the
+first time, applies migrations, bootstraps roles, and runs the API (http://localhost:8000)
+and the web app (http://localhost:5173). **Sign-in is skipped locally**: you are signed in
+as the first Super Admin, or a "Local Developer" Super Admin is created on an empty
+database. The bypass works only when `ENVIRONMENT=local`; the API refuses to start with it
+anywhere else.
+
+Database commands: `npm run db:start`, `npm run db:stop`, `npm run db:status`. Data is
+kept in `%LOCALAPPDATA%\EranovaOrbit\pgdata` (outside OneDrive) on port **5433**, with
+databases `orbit_dev` and `orbit_test`.
+
+### Manual backend commands (PowerShell, from `backend\`)
+
+```powershell
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements-dev.txt
-Copy-Item .env.example .env
-# Edit .env and set SECRET_KEY. Generate one with:
-python -c "import secrets; print(secrets.token_urlsafe(48))"
+python -m scripts.dev_db start
 alembic upgrade head
 python -m app.cli bootstrap
-python -m app.cli create-superadmin
+python -m app.cli create-superadmin      # a real account with your own password
 uvicorn app.main:create_app --factory --reload --port 8000
 ```
 
