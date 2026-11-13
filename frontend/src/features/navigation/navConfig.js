@@ -1,21 +1,23 @@
 import {
-  Building,
-  Workflow,
   Boxes,
+  Briefcase,
+  Building,
+  FolderKanban,
   Globe,
   Inbox,
   LayoutDashboard,
+  ListChecks,
   ScrollText,
   Settings,
   ShieldCheck,
   Users,
   UsersRound,
+  Workflow,
 } from 'lucide-react'
 
 /**
- * Command-centre navigation. Only modules that are actually delivered appear
- * here; Products, Analytics, CRM, Projects, Team, Marketing, Finance, Support
- * and NOVA are added as each phase ships, rather than as placeholder links.
+ * Command-centre navigation. Only delivered modules appear; each later phase
+ * adds its items here rather than shipping placeholder links.
  *
  * `permission` hides items the user cannot use (UX only — the API enforces access).
  */
@@ -24,12 +26,28 @@ export const NAV_SECTIONS = [
     label: 'Command centre',
     items: [
       { to: '/app', label: 'Overview', icon: LayoutDashboard, end: true },
+      { to: '/app/me', label: 'My work', icon: Briefcase },
+    ],
+  },
+  {
+    label: 'Business',
+    items: [
       { to: '/app/products', label: 'Products', icon: Boxes, permission: 'product.read' },
       { to: '/app/leads', label: 'Leads', icon: Inbox, permission: 'lead.read' },
       { to: '/app/customers', label: 'Customers', icon: Building, permission: 'customer.read' },
       { to: '/app/website', label: 'Website', icon: Globe, permission: 'content.read' },
-      { to: '/app/team', label: 'Team', icon: UsersRound, permission: 'employee.read' },
     ],
+  },
+  {
+    label: 'Delivery',
+    items: [
+      { to: '/app/projects', label: 'Projects', icon: FolderKanban, permission: 'project.read' },
+      { to: '/app/tasks', label: 'Tasks', icon: ListChecks },
+    ],
+  },
+  {
+    label: 'People',
+    items: [{ to: '/app/team', label: 'Team', icon: UsersRound, permission: 'employee.read' }],
   },
   {
     label: 'Administration',

@@ -91,6 +91,26 @@ export const routes = [
                 lazy: page(() => import('@/features/leads/LeadDetailPage'), 'LeadDetailPage'),
               },
               {
+                path: 'me',
+                lazy: page(() => import('@/features/portal/MyWorkPage'), 'MyWorkPage'),
+              },
+              {
+                path: 'projects',
+                lazy: page(() => import('@/features/work/ProjectsPage'), 'ProjectsPage'),
+              },
+              {
+                path: 'projects/:projectId',
+                lazy: page(() => import('@/features/work/ProjectDetailPage'), 'ProjectDetailPage'),
+              },
+              {
+                path: 'tasks',
+                lazy: page(() => import('@/features/work/TasksPage'), 'TasksPage'),
+              },
+              {
+                path: 'tasks/:taskId',
+                lazy: page(() => import('@/features/work/TaskDetailPage'), 'TaskDetailPage'),
+              },
+              {
                 path: 'customers',
                 lazy: page(() => import('@/features/customers/CustomersPage'), 'CustomersPage'),
               },

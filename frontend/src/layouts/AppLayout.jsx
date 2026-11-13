@@ -5,6 +5,7 @@ import { Logo } from '@/components/brand/Logo'
 import { Button } from '@/components/ui/button'
 import { useLogout, useMe, usePermissions } from '@/features/auth/hooks'
 import { visibleSections } from '@/features/navigation/navConfig'
+import { NotificationBell } from '@/features/portal/NotificationBell'
 import { GlobalSearch } from '@/features/search/GlobalSearch'
 import { cn } from '@/lib/utils'
 
@@ -160,6 +161,7 @@ export function AppLayout() {
           </Button>
           <GlobalSearch />
           <div className="ml-auto flex items-center gap-3">
+            <NotificationBell />
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium leading-tight">{me?.user?.full_name}</p>
               <p className="text-xs text-muted-foreground">{me?.user?.email}</p>
