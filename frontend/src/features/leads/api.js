@@ -1,20 +1,39 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiRequest } from '@/lib/api/client'
 
-export const LEAD_STATUSES = [
-  { value: 'new', label: 'New', variant: 'accent' },
-  { value: 'contacted', label: 'Contacted', variant: 'default' },
-  { value: 'interested', label: 'Interested', variant: 'default' },
-  { value: 'demo_scheduled', label: 'Demo scheduled', variant: 'accent' },
-  { value: 'negotiation', label: 'Negotiation', variant: 'warning' },
-  { value: 'converted', label: 'Converted', variant: 'success' },
-  { value: 'lost', label: 'Lost', variant: 'destructive' },
-]
-export const LEAD_STATUS = Object.fromEntries(LEAD_STATUSES.map((s) => [s.value, s]))
 export const PRIORITIES = ['low', 'medium', 'high']
 export const SOURCE_LABELS = {
   website_contact: 'Website contact form',
   website_demo: 'Website demo request',
+  manual: 'Added by staff',
+}
+export const ACTIVITY_TYPES = [
+  { value: 'call', label: 'Call' },
+  { value: 'email', label: 'Email' },
+  { value: 'meeting', label: 'Meeting' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'sms', label: 'SMS' },
+  { value: 'note', label: 'Note' },
+]
+
+export function stageVariant(stage) {
+  if (!stage) return 'default'
+  if (stage.is_won) return 'success'
+  if (stage.is_lost) return 'destructive'
+  return stage.position === 0 ? 'accent' : 'default'
+}
+
+export function useStages() {
+  return useQuery({
+    queryKey: ['crm', 'stages'],
+    queryFn: ({ signal }) => apiRequest('/api/v1/crm/stages', { signal }),
+    staleTime: 60_000,
+  })
+}
+
+export function useStageMap() {
+  const { data } = useStages()
+  return Object.fromEntries((data ?? []).map((s) => [s.key, s]))
 }
 
 export function useLeads(filters) {
@@ -32,13 +51,59 @@ export function useLead(id) {
   })
 }
 
-export function useUpdateLead(id) {
+function useLeadMutation(id, mutationFn) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (payload) => apiRequest(`/api/v1/leads/${id}`, { method: 'PATCH', body: payload }),
+    mutationFn,
     onSuccess: (lead) => {
-      queryClient.setQueryData(['leads', 'detail', id], lead)
+      if (lead?.id) queryClient.setQueryData(['leads', 'detail', lead.id], lead)
       queryClient.invalidateQueries({ queryKey: ['leads', 'list'] })
+      queryClient.invalidateQueries({ queryKey: ['customers'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
+}
+
+export function useUpdateLead(id) {
+  return useLeadMutation(id, (payload) =>
+    apiRequest(`/api/v1/leads/${id}`, { method: 'PATCH', body: payload }),
+  )
+}
+
+export function useCreateLead() {
+  return useLeadMutation(null, (payload) =>
+    apiRequest('/api/v1/leads', { method: 'POST', body: payload }),
+  )
+}
+
+export function useAddLeadActivity(id) {
+  return useLeadMutation(id, (payload) =>
+    apiRequest(`/api/v1/leads/${id}/activities`, { method: 'POST', body: payload }),
+  )
+}
+
+export function useConvertLead(id) {
+  return useLeadMutation(id, (payload) =>
+    apiRequest(`/api/v1/leads/${id}/convert`, { method: 'POST', body: payload }),
+  )
+}
+
+export function useStageMutations() {
+  const queryClient = useQueryClient()
+  const done = { onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crm', 'stages'] }) }
+  return {
+    create: useMutation({
+      mutationFn: (payload) => apiRequest('/api/v1/crm/stages', { method: 'POST', body: payload }),
+      ...done,
+    }),
+    update: useMutation({
+      mutationFn: ({ id, ...payload }) =>
+        apiRequest(`/api/v1/crm/stages/${id}`, { method: 'PATCH', body: payload }),
+      ...done,
+    }),
+    remove: useMutation({
+      mutationFn: (id) => apiRequest(`/api/v1/crm/stages/${id}`, { method: 'DELETE' }),
+      ...done,
+    }),
+  }
 }

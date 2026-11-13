@@ -91,6 +91,24 @@ export const routes = [
                 lazy: page(() => import('@/features/leads/LeadDetailPage'), 'LeadDetailPage'),
               },
               {
+                path: 'customers',
+                lazy: page(() => import('@/features/customers/CustomersPage'), 'CustomersPage'),
+              },
+              {
+                path: 'customers/:customerId',
+                lazy: page(
+                  () => import('@/features/customers/CustomerDetailPage'),
+                  'CustomerDetailPage',
+                ),
+              },
+              {
+                path: 'settings/pipeline',
+                lazy: page(
+                  () => import('@/features/leads/PipelineSettingsPage'),
+                  'PipelineSettingsPage',
+                ),
+              },
+              {
                 path: 'website',
                 lazy: page(() => import('@/features/website/WebsitePage'), 'WebsitePage'),
               },

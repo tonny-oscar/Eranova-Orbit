@@ -25,11 +25,18 @@ const LEAD = {
 }
 
 const page = (items) => jsonResponse(200, { items, total: items.length, limit: 25, offset: 0 })
+const STAGES = () =>
+  jsonResponse(200, [
+    { id: 's1', key: 'new', name: 'New', position: 0, is_won: false, is_lost: false },
+    { id: 's2', key: 'contacted', name: 'Contacted', position: 1, is_won: false, is_lost: false },
+    { id: 's3', key: 'converted', name: 'Converted', position: 2, is_won: true, is_lost: false },
+  ])
 
 describe('leads', () => {
   it('lists leads from website enquiries', async () => {
     mockApi({
       'GET /api/v1/auth/me': () => jsonResponse(200, STAFF),
+      'GET /api/v1/crm/stages': STAGES,
       'GET /api/v1/products': () => page([]),
       'GET /api/v1/leads': () => page([LEAD]),
     })
@@ -42,6 +49,7 @@ describe('leads', () => {
   it('shows enquiry history with consent and updates the lead', async () => {
     const calls = mockApi({
       'GET /api/v1/auth/me': () => jsonResponse(200, STAFF),
+      'GET /api/v1/crm/stages': STAGES,
       'GET /api/v1/leads/l1': () =>
         jsonResponse(200, {
           ...LEAD,
@@ -85,7 +93,7 @@ describe('leads', () => {
     expect(screen.getByText(/privacy notice 2026-11-draft/)).toBeInTheDocument()
     expect(screen.getByText(/source google\/cpc/)).toBeInTheDocument()
 
-    await user.selectOptions(screen.getByLabelText('Status'), 'contacted')
+    await user.selectOptions(await screen.findByLabelText('Stage'), 'contacted')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true))
     expect(JSON.parse(calls.find((c) => c.method === 'PATCH').init.body)).toMatchObject({
@@ -111,6 +119,7 @@ describe('website content', () => {
   it('saves drafts and explains that publishing needs approval', async () => {
     const calls = mockApi({
       'GET /api/v1/auth/me': () => jsonResponse(200, STAFF),
+      'GET /api/v1/crm/stages': STAGES,
       'GET /api/v1/content/pages/about': () => jsonResponse(200, ADMIN_PAGE),
       'PUT /api/v1/content/pages/about': () =>
         jsonResponse(200, { ...ADMIN_PAGE, has_unpublished_changes: true, updated_at: 'x' }),
