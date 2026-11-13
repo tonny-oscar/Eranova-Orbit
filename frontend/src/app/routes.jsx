@@ -149,6 +149,14 @@ export const routes = [
                 lazy: page(() => import('@/features/team/EmployeePage'), 'EmployeePage'),
               },
               {
+                path: 'nova',
+                lazy: page(() => import('@/features/nova/NovaPage'), 'NovaPage'),
+              },
+              {
+                path: 'nova/approvals',
+                lazy: page(() => import('@/features/nova/ApprovalsPage'), 'ApprovalsPage'),
+              },
+              {
                 path: 'marketing',
                 lazy: page(() => import('@/features/marketing/CampaignsPage'), 'CampaignsPage'),
               },

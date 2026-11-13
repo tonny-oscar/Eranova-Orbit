@@ -2,7 +2,7 @@ from functools import lru_cache
 from typing import Annotated, Literal
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 Environment = Literal["local", "test", "staging", "production"]
@@ -55,6 +55,21 @@ class Settings(BaseSettings):
     company_slug: str = "eranova"
     company_timezone: str = "Africa/Nairobi"
 
+    # NOVA AI gateway. "none" runs NOVA in basic (no model) mode.
+    nova_provider: Literal["none", "openai_compatible"] = "none"
+    nova_base_url: str = "https://api.openai.com/v1"
+    nova_model: str = ""
+    nova_api_key: SecretStr | None = None
+    nova_timeout_seconds: float = Field(default=60, ge=5, le=300)
+    nova_max_output_tokens: int = Field(default=900, ge=64, le=8000)
+    nova_temperature: float = Field(default=0.2, ge=0, le=2)
+    nova_daily_token_limit: int = Field(default=200_000, ge=1000)
+    nova_messages_per_minute: int = Field(default=12, ge=1, le=120)
+    nova_cost_input_per_1k: float | None = Field(default=None, ge=0)
+    nova_cost_output_per_1k: float | None = Field(default=None, ge=0)
+    nova_retention_days: int = Field(default=180, ge=7, le=3650)
+    nova_share_contact_details: bool = False
+
     @field_validator("database_url")
     @classmethod
     def _normalize_database_url(cls, value: str) -> str:
@@ -76,6 +91,11 @@ class Settings(BaseSettings):
     def _enforce_deployed_safety(self) -> "Settings":
         if self.dev_auto_login and self.environment != "local":
             raise ValueError("DEV_AUTO_LOGIN may only be enabled when ENVIRONMENT=local")
+        if self.nova_provider != "none":
+            if not self.nova_model:
+                raise ValueError("NOVA_MODEL is required when NOVA_PROVIDER is set")
+            if self.is_deployed and not self.nova_base_url.startswith("https://"):
+                raise ValueError("NOVA_BASE_URL must use https in staging/production")
         if self.is_deployed:
             lowered = self.secret_key.lower()
             if any(marker in lowered for marker in _INSECURE_SECRET_MARKERS):

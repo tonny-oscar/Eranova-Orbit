@@ -46,6 +46,9 @@ RESOURCES: dict[str, tuple[str, tuple[Action, ...]]] = {
     "document": ("documents", ALL_ACTIONS),
     "integration": ("integrations", ALL_ACTIONS),
     "report": ("reports", (Action.READ, Action.CREATE, Action.EXPORT, Action.MANAGE)),
+    # Using NOVA needs no grant (its tools enforce their own permissions);
+    # "manage" shows company-wide NOVA usage.
+    "nova": ("the NOVA assistant", (Action.MANAGE,)),
     # Public website content; "approve" publishes to the public site.
     "content": ("website content", (Action.READ, Action.UPDATE, Action.APPROVE)),
     # Platform administration
@@ -111,7 +114,7 @@ def _keys(resource: str, *actions: Action) -> list[str]:
 
 
 def _read_all(resources: list[str]) -> list[str]:
-    return [permission_key(r, Action.READ) for r in resources]
+    return [permission_key(r, Action.READ) for r in resources if Action.READ in RESOURCES[r][1]]
 
 
 _BUSINESS = [r for r in RESOURCES if r not in ("user", "role", "audit_log", "settings")]

@@ -22,7 +22,7 @@ Open http://localhost:5173. Sign-in is bypassed (you are a demo Super Admin) and
 in-memory sample data, labelled by a banner. Nothing is saved. See
 [ADR 0010](docs/adr/0010-frontend-demo-preview.md).
 
-## Current status: Phases 1–5 (Foundation, Marketplace, Operations, Integrations, Marketing/Support/Reports)
+## Current status: Phases 1–6 (… Marketing/Support/Reports, NOVA)
 
 | Area | Delivered |
 | --- | --- |
@@ -44,12 +44,17 @@ in-memory sample data, labelled by a banner. Nothing is saved. See
 | Support | Tickets T-1001… linked to products and customers, full lifecycle, replies, internal notes, history, response and resolution metrics |
 | Documents | Versioned document centre with type-checked uploads, scoped or restricted access, audited downloads |
 | Reports | Executive, sales, support, delivery, marketing, traffic, product and people reports from live data; Excel/CSV export; scheduled in-app delivery generated with each recipient's own access |
+| NOVA | Assistant at **/app/nova** (and "Ask NOVA" in the header): provider-neutral gateway (any OpenAI-compatible API) with a look-up-only basic mode when no model is configured; 17 allowlisted tools that reuse the app's permission checks; approvals bound to exact parameters (role changes need a second administrator, voice actions are confirmed on screen); push-to-talk voice with transcript review and spoken replies; masked contact details; usage, rate and daily token limits; retention |
 | Worker | `python -m app.worker`: scheduled syncs, follow-up, task and publishing reminders, scheduled reports, retention |
 | Audit | Append-only audit log (database trigger blocks UPDATE/DELETE/TRUNCATE) for sign-ins, denials and every privileged change |
 | Delivery | Docker-free local PostgreSQL and one-command dev runner, CI workflow, Render blueprint, Vercel config, ADRs and operations docs |
 
-NOVA (the AI assistant) and finance arrive in the next phases (see the phase list in the
-master brief). The navigation only shows modules that exist.
+Finance (Phase 7) and production hardening (Phase 8) are next.
+
+To see everything with sample data locally, run `npm run dev:sample` (sample records are
+labelled "(sample)" and the command refuses to run outside `ENVIRONMENT=local`). To enable
+full NOVA, set `NOVA_PROVIDER=openai_compatible`, `NOVA_MODEL` and `NOVA_API_KEY` in
+`backend/.env` (locally) or the Render dashboard. The navigation only shows modules that exist.
 To connect your existing live products, follow the
 [product integration contract](docs/integrations/product-api-contract.md).
 

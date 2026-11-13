@@ -1,6 +1,7 @@
 import {
   Activity,
   BarChart3,
+  Bot,
   Boxes,
   Briefcase,
   Building,
@@ -33,6 +34,7 @@ export const NAV_SECTIONS = [
     label: 'Command centre',
     items: [
       { to: '/app', label: 'Overview', icon: LayoutDashboard, end: true },
+      { to: '/app/nova', label: 'NOVA', icon: Bot },
       { to: '/app/me', label: 'My work', icon: Briefcase },
       { to: '/app/reports', label: 'Reports', icon: FileBarChart, permission: 'report.read' },
       { to: '/app/documents', label: 'Documents', icon: FolderOpen, permission: 'document.read' },

@@ -11,6 +11,7 @@ from app.modules.identity.users_router import router as users_router
 from app.modules.integrations.router import router as integrations_router
 from app.modules.marketing.router import router as marketing_router
 from app.modules.notifications.router import router as notifications_router
+from app.modules.nova.router import router as nova_router
 from app.modules.people.portal import router as portal_router
 from app.modules.people.router import router as people_router
 from app.modules.products.router import router as products_router
@@ -35,6 +36,7 @@ api_router.include_router(marketing_router)
 api_router.include_router(support_router)
 api_router.include_router(documents_router)
 api_router.include_router(reports_router)
+api_router.include_router(nova_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(authorization_router)
 api_router.include_router(audit_router)

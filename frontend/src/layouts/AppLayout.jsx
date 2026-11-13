@@ -1,8 +1,8 @@
-import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
+import { Bot, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Logo } from '@/components/brand/Logo'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { useLogout, useMe, usePermissions } from '@/features/auth/hooks'
 import { visibleSections } from '@/features/navigation/navConfig'
 import { NotificationBell } from '@/features/portal/NotificationBell'
@@ -161,6 +161,11 @@ export function AppLayout() {
           </Button>
           <GlobalSearch />
           <div className="ml-auto flex items-center gap-3">
+            <Link to="/app/nova" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+              <Bot aria-hidden="true" />
+              <span className="hidden sm:inline">Ask NOVA</span>
+              <span className="sr-only sm:hidden">Ask NOVA</span>
+            </Link>
             <NotificationBell />
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium leading-tight">{me?.user?.full_name}</p>

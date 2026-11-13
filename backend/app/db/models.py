@@ -13,6 +13,7 @@ import app.modules.identity.models
 import app.modules.integrations.models
 import app.modules.marketing.models
 import app.modules.notifications.models
+import app.modules.nova.models
 import app.modules.people.models
 import app.modules.products.models
 import app.modules.reports.models

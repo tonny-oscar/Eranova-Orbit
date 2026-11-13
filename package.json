@@ -6,6 +6,7 @@
     "postinstall": "npm --prefix frontend install",
     "dev": "npm --prefix frontend run dev",
     "dev:full": "node scripts/dev.mjs",
+    "dev:sample": "node scripts/dev.mjs --sample",
     "dev:demo": "npm --prefix frontend run dev:demo",
     "db:start": "node scripts/db.mjs start",
     "db:stop": "node scripts/db.mjs stop",

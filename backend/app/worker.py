@@ -24,6 +24,7 @@ from app.modules.integrations import service as integration_service
 from app.modules.marketing import service as marketing_service
 from app.modules.notifications.models import Notification
 from app.modules.notifications.service import notify
+from app.modules.nova import service as nova_service
 from app.modules.reports import service as report_service
 from app.modules.work.models import Task
 from app.modules.work.service import OPEN_STATUSES
@@ -149,6 +150,11 @@ async def retention(session) -> None:
     removed = await integration_service.purge_old_checks(session)
     if removed:
         logger.info("purged old uptime checks", extra={"rows": removed})
+    conversations = await nova_service.purge_old_conversations(session)
+    if conversations:
+        logger.info("purged old NOVA conversations", extra={"rows": conversations})
+    await nova_service.expire_approvals(session)
+    await session.commit()
 
 
 async def run_cycle() -> None:

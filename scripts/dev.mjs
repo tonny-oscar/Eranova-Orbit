@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * One-command local development: `npm run dev:full`
+ * (`npm run dev:sample` also loads clearly labelled sample data on first run)
  *
  *  1. starts the local PostgreSQL (backend/scripts/dev_db.py, no Docker)
  *  2. creates backend/.env with a random local SECRET_KEY if it does not exist
@@ -58,10 +59,18 @@ if (!existsSync(envFile)) {
   console.log('Created backend/.env with a random local SECRET_KEY.')
 }
 
-const devEnv = { DEV_AUTO_LOGIN: 'true', ENVIRONMENT: 'local' }
+const devEnv = {
+  DEV_AUTO_LOGIN: 'true',
+  ENVIRONMENT: 'local',
+  // Vite moves to 5174 when 5173 is taken (e.g. by `npm run dev:demo`).
+  CORS_ALLOWED_ORIGINS: 'http://localhost:5173,http://localhost:5174',
+}
 step('Starting local PostgreSQL', python, ['-m', 'scripts.dev_db', 'start'], backend)
 step('Applying database migrations', python, ['-m', 'alembic', 'upgrade', 'head'], backend, devEnv)
 step('Bootstrapping roles and permissions', python, ['-m', 'app.cli', 'bootstrap'], backend, devEnv)
+if (process.argv.includes('--sample')) {
+  step('Loading labelled sample data', python, ['-m', 'app.demo_seed'], backend, devEnv)
+}
 
 const children = []
 function run(label, command, args, cwd, env = {}) {
