@@ -153,6 +153,10 @@ export const routes = [
                 lazy: page(() => import('@/features/nova/NovaPage'), 'NovaPage'),
               },
               {
+                path: 'nova/memory',
+                lazy: page(() => import('@/features/nova/MemoryPage'), 'MemoryPage'),
+              },
+              {
                 path: 'nova/approvals',
                 lazy: page(() => import('@/features/nova/ApprovalsPage'), 'ApprovalsPage'),
               },

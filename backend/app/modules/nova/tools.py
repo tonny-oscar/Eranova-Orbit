@@ -47,7 +47,8 @@ from app.modules.work import service as work_service
 from app.modules.work.models import Project, Task
 from app.modules.work.schemas import TaskIn
 
-Authority = Literal["read", "execute", "approval"]
+# "personal" tools only touch the user's own NOVA memory.
+Authority = Literal["read", "personal", "execute", "approval"]
 
 
 @dataclass
@@ -908,6 +909,64 @@ async def assign_role(ctx: ToolContext, a: AssignRoleArgs) -> ToolResult:
     )
 
 
+# --- Personal memory tools -----------------------------------------------------------
+
+
+class RememberArgs(Args):
+    content: str = Field(min_length=3, max_length=500, description="One short fact or preference")
+    category: Literal["preference", "fact", "goal", "style"] = "fact"
+    user_asked: bool = Field(
+        default=False, description="True only if the user asked you to remember"
+    )
+
+
+async def remember(ctx: ToolContext, a: RememberArgs) -> ToolResult:
+    from app.modules.nova import memory
+
+    profile = await memory.get_profile(ctx.session, ctx.user)
+    if not a.user_asked and not profile.learning_enabled:
+        raise AppError("Learning is switched off for this user.", code="learning_disabled")
+    note, created = await memory.add_memory(
+        ctx.session, ctx.user, a.content, a.category, "told" if a.user_asked else "learned"
+    )
+    await ctx.session.commit()
+    return ToolResult(
+        summary=f"{'Remembered' if created else 'Already knew'}: {note.content}",
+        data={"id": str(note.id)},
+        links=[_link("What NOVA remembers", "/app/nova/memory")],
+    )
+
+
+class ForgetArgs(Args):
+    text: str = Field(min_length=2, max_length=200, description="Words from the note to forget")
+
+
+async def forget(ctx: ToolContext, a: ForgetArgs) -> ToolResult:
+    from app.modules.nova import memory
+
+    removed = await memory.forget_matching(ctx.session, ctx.user, a.text)
+    await ctx.session.commit()
+    if not removed:
+        return ToolResult(summary=f"Nothing in memory matched '{a.text}'.")
+    return ToolResult(
+        summary=f"Forgot {len(removed)} note(s): " + "; ".join(_short(r, 60) for r in removed),
+        links=[_link("What NOVA remembers", "/app/nova/memory")],
+    )
+
+
+async def what_you_know(ctx: ToolContext, _: NoArgs) -> ToolResult:
+    from app.modules.nova import memory
+
+    notes = [m for m in await memory.list_memories(ctx.session, ctx.user) if m.active]
+    return ToolResult(
+        summary=f"{len(notes)} note(s) in memory.",
+        data=[
+            {"content": m.content, "category": m.category, "source": m.source} for m in notes[:40]
+        ],
+        links=[_link("What NOVA remembers", "/app/nova/memory")],
+    )
+
+
 def _short(text: str, n: int = 80) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     return text if len(text) <= n else text[: n - 1] + "…"
@@ -916,6 +975,27 @@ def _short(text: str, n: int = 80) -> str:
 TOOLS: dict[str, Tool] = {
     t.name: t
     for t in (
+        Tool(
+            "remember",
+            "Save a short lasting fact, preference, goal or answer-style note about the user.",
+            "personal",
+            RememberArgs,
+            remember,
+        ),
+        Tool(
+            "forget",
+            "Delete the user's memory notes that match some words.",
+            "personal",
+            ForgetArgs,
+            forget,
+        ),
+        Tool(
+            "what_you_know",
+            "List what NOVA remembers about the user.",
+            "read",
+            NoArgs,
+            what_you_know,
+        ),
         Tool(
             "search_records",
             "Search products, projects, tasks, leads, customers, tickets, campaigns and "

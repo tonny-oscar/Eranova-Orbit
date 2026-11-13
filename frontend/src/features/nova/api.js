@@ -88,6 +88,64 @@ export function useSendMessage() {
   })
 }
 
+export function useNovaProfile() {
+  return useQuery({
+    queryKey: ['nova', 'profile'],
+    queryFn: ({ signal }) => apiRequest('/api/v1/nova/profile', { signal }),
+  })
+}
+
+export function useSaveNovaProfile() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body) => apiRequest('/api/v1/nova/profile', { method: 'PUT', body }),
+    onSuccess: (profile) => queryClient.setQueryData(['nova', 'profile'], profile),
+  })
+}
+
+export function useMemories() {
+  return useQuery({
+    queryKey: ['nova', 'memories'],
+    queryFn: ({ signal }) => apiRequest('/api/v1/nova/memories', { signal }),
+  })
+}
+
+function useMemoryMutation(mutationFn) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['nova', 'memories'] }),
+  })
+}
+
+export function useMemoryActions() {
+  return {
+    add: useMemoryMutation((body) => apiRequest('/api/v1/nova/memories', { method: 'POST', body })),
+    update: useMemoryMutation(({ id, ...body }) =>
+      apiRequest(`/api/v1/nova/memories/${id}`, { method: 'PATCH', body }),
+    ),
+    remove: useMemoryMutation((id) =>
+      apiRequest(`/api/v1/nova/memories/${id}`, { method: 'DELETE' }),
+    ),
+    clear: useMemoryMutation(() => apiRequest('/api/v1/nova/memories', { method: 'DELETE' })),
+  }
+}
+
+export function useFeedback(conversationId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ messageId, rating, comment }) =>
+      apiRequest(`/api/v1/nova/messages/${messageId}/feedback`, {
+        method: 'POST',
+        body: { rating, comment: comment || null },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['nova', 'conversation', conversationId] })
+      queryClient.invalidateQueries({ queryKey: ['nova', 'memories'] })
+    },
+  })
+}
+
 export function useDecideApproval() {
   const queryClient = useQueryClient()
   return useMutation({

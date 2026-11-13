@@ -1,11 +1,14 @@
 import {
   Bot,
+  Brain,
   ExternalLink,
   Mic,
   MicOff,
   Plus,
   Send,
   ShieldCheck,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
   Volume2,
   VolumeX,
@@ -18,7 +21,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/form-controls'
-import { Label } from '@/components/ui/input'
+import { Input, Label } from '@/components/ui/input'
 import { ErrorState, LoadingState } from '@/components/ui/states'
 import { useMe } from '@/features/auth/hooks'
 import { cn, formatNumber } from '@/lib/utils'
@@ -29,6 +32,8 @@ import {
   useConversations,
   useCreateConversation,
   useDeleteConversation,
+  useFeedback,
+  useNovaProfile,
   useNovaStatus,
   useNovaUsage,
   useSendMessage,
@@ -76,7 +81,71 @@ function Executions({ items }) {
   )
 }
 
-function Message({ message, executions, approvals, timeZone }) {
+function Feedback({ message, conversationId }) {
+  const feedback = useFeedback(conversationId)
+  const [asking, setAsking] = useState(false)
+  const [comment, setComment] = useState('')
+  const rate = (rating, text) =>
+    feedback.mutate(
+      { messageId: message.id, rating, comment: text },
+      { onSuccess: () => setAsking(false) },
+    )
+  return (
+    <div className="mt-1 space-y-1">
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Helpful"
+          aria-pressed={message.rating === 1}
+          className={message.rating === 1 ? 'text-success' : ''}
+          onClick={() => rate(1)}
+        >
+          <ThumbsUp aria-hidden="true" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Not helpful"
+          aria-pressed={message.rating === -1}
+          className={message.rating === -1 ? 'text-destructive' : ''}
+          onClick={() => setAsking(true)}
+        >
+          <ThumbsDown aria-hidden="true" />
+        </Button>
+        {feedback.isSuccess && (
+          <span className="text-[10px] text-muted-foreground">Thanks, noted.</span>
+        )}
+      </div>
+      {asking && (
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            rate(-1, comment.trim())
+          }}
+        >
+          <Label htmlFor={`fb-${message.id}`} className="sr-only">
+            What should NOVA do differently?
+          </Label>
+          <Input
+            id={`fb-${message.id}`}
+            maxLength={500}
+            placeholder="What should NOVA do differently? (it will remember)"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
+          <Button type="submit" size="sm" loading={feedback.isPending}>
+            Send
+          </Button>
+        </form>
+      )}
+      {feedback.isError && <p className="text-xs text-destructive">{feedback.error.message}</p>}
+    </div>
+  )
+}
+
+function Message({ message, executions, approvals, timeZone, conversationId }) {
   const mine = message.role === 'user'
   return (
     <li className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
@@ -114,6 +183,7 @@ function Message({ message, executions, approvals, timeZone }) {
             ))}
           </div>
         )}
+        {!mine && <Feedback message={message} conversationId={conversationId} />}
         <p className="mt-1 text-[10px] text-muted-foreground">
           {message.via === 'voice' ? 'Spoken · ' : ''}
           {new Date(message.created_at).toLocaleTimeString(undefined, {
@@ -161,6 +231,7 @@ function Thread({ conversationId, timeZone, extraApprovals, pending }) {
           executions={executions[m.id]}
           approvals={extraApprovals[m.id]}
           timeZone={timeZone}
+          conversationId={conversationId}
         />
       ))}
       {pending && (
@@ -336,6 +407,7 @@ export function NovaPage() {
   const [params, setParams] = useSearchParams()
   const conversationId = params.get('c')
   const status = useNovaStatus()
+  const profile = useNovaProfile()
   const conversations = useConversations()
   const remove = useDeleteConversation()
   const pendingApprovals = useApprovals('pending')
@@ -360,6 +432,12 @@ export function NovaPage() {
             <ShieldCheck className="size-4" aria-hidden="true" /> Approvals
           </span>
           {decidable > 0 && <Badge variant="warning">{decidable}</Badge>}
+        </Link>
+        <Link
+          to="/app/nova/memory"
+          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:border-accent"
+        >
+          <Brain className="size-4" aria-hidden="true" /> About you
         </Link>
         <nav aria-label="Conversations" className="space-y-1">
           {(conversations.data ?? []).map((c) => (
@@ -435,7 +513,8 @@ export function NovaPage() {
             <div className="mx-auto max-w-xl space-y-3 py-10 text-center">
               <Bot className="mx-auto size-10 text-accent" aria-hidden="true" />
               <p className="text-lg font-medium">
-                Hi {me.user.full_name.split(' ')[0]}, how can I help?
+                Hi {profile.data?.preferred_name || me.user.full_name.split(' ')[0]}, how can I
+                help?
               </p>
               <p className="text-sm text-muted-foreground">
                 I only see what your role allows. Anything sensitive waits for confirmation or an

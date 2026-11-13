@@ -1,7 +1,8 @@
 """Basic mode: used when no AI model is configured.
 
-Maps a few plain requests to read-only tools so NOVA is useful without an API
-key. It never performs actions and says clearly that it is not an AI model.
+Maps a few plain requests to read-only tools (plus the user's own memory notes)
+so NOVA is useful without an API key. It never changes company records and says
+clearly that it is not an AI model.
 """
 
 import re
@@ -25,6 +26,7 @@ HELP = (
     '• "search ShulePoa"\n'
     '• "sales report" (also support, delivery, marketing, traffic, product, people)\n'
     '• "status of ShulePoa"\n'
+    '• "remember that I manage ShulePoa", "what do you know about me", "forget ShulePoa"\n'
     "An administrator can enable full NOVA (drafting, actions, voice conversations) by setting "
     "NOVA_PROVIDER, NOVA_MODEL and NOVA_API_KEY on the server."
 )
@@ -43,6 +45,32 @@ _REPORTS = (
 
 def plan(text: str) -> Plan:
     t = text.strip().lower()
+    if m := re.match(
+        r"\s*(?:please\s+)?remember(?:\s+that)?\s+(.{3,500})$", text.strip(), re.IGNORECASE
+    ):
+        content = m.group(1).strip()
+        category = (
+            "preference" if re.search(r"\b(i prefer|i like|i want|always|never)\b", t) else "fact"
+        )
+        return Plan("remember", {"content": content, "category": category, "user_asked": True})
+    if m := re.match(r"\s*forget(?:\s+that)?\s+(.{2,200})$", text.strip(), re.IGNORECASE):
+        return Plan("forget", {"text": m.group(1).strip(" .")})
+    if re.search(r"\b(what do you (know|remember) about me|what have you learned)\b", t):
+        return Plan("what_you_know", {})
+    if re.match(
+        r"(i (prefer|like|love|want|usually|always|never)|my (role|job|focus|goal) is"
+        r"|i (manage|work on|lead|am responsible for))\b",
+        t,
+    ):
+        # A statement about themselves: NOVA learns it (if learning is on).
+        category = (
+            "preference"
+            if re.match(r"i (prefer|like|love|want|usually|always|never)", t)
+            else "fact"
+        )
+        return Plan(
+            "remember", {"content": text.strip(), "category": category, "user_asked": False}
+        )
     if re.search(r"\b(help|what can you do)\b", t):
         return Plan(None, {}, HELP)
     if m := re.search(r"\b(?:status of|how is)\s+(.+?)\s*\??$", t):
@@ -96,6 +124,9 @@ def render(summary: str, data, links: list[dict]) -> str:
                 lines.append(f"• {section['title']}: {figures}")
             elif section["rows"]:
                 lines.append(f"• {section['title']}: {len(section['rows'])} row(s)")
+    elif isinstance(data, list) and data and "content" in data[0]:
+        for note in data[:20]:
+            lines.append(f"• {note['content']}")
     elif isinstance(data, list):
         for item in data[:10]:
             label = item.get("name") or item.get("title") or item.get("subject") or ""

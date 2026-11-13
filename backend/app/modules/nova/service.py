@@ -21,7 +21,7 @@ from app.modules.authorization.service import list_user_assignments, load_princi
 from app.modules.company.models import Company
 from app.modules.identity.models import User, UserStatus
 from app.modules.notifications.service import notify
-from app.modules.nova import basic
+from app.modules.nova import basic, memory
 from app.modules.nova.models import NovaApproval, NovaConversation, NovaMessage, NovaToolExecution
 from app.modules.nova.tools import TOOLS, Tool, ToolContext, ToolResult, available_tools
 from app.nova.gateway import Provider, ProviderError, estimate_cost, get_provider
@@ -115,8 +115,9 @@ async def _system_prompt(session, user: User, principal: Principal, tools: list[
         "'pending_approval', explain that it is waiting for confirmation or approval.\n"
         "5. Label estimates and recommendations as such, separate from confirmed figures.\n"
         "6. Do not make hiring, firing, promotion or disciplinary decisions.\n"
-        "7. Be concise. Mention record names so the user can open the linked records.\n"
-        f"Available tools: {', '.join(t.name for t in tools)}."
+        "7. Mention record names so the user can open the linked records.\n"
+        f"Available tools: {', '.join(t.name for t in tools)}.\n\n"
+        f"About this user:\n{await memory.prompt_context(session, user)}"
     )
 
 

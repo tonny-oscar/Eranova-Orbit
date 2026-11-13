@@ -11,8 +11,14 @@ from app.core.request_meta import RequestMeta
 from app.db.session import get_db
 from app.modules.crm.service import lookup
 from app.modules.identity.models import User
-from app.modules.nova import service
-from app.modules.nova.models import NovaApproval, NovaConversation, NovaMessage, NovaToolExecution
+from app.modules.nova import memory, service
+from app.modules.nova.models import (
+    NovaApproval,
+    NovaConversation,
+    NovaFeedback,
+    NovaMessage,
+    NovaToolExecution,
+)
 from app.modules.nova.service import DecisionIn, MessageIn
 
 router = APIRouter(prefix="/nova", tags=["nova"])
@@ -45,6 +51,7 @@ class MessageOut(BaseModel):
     provider: str | None
     model: str | None
     created_at: datetime
+    rating: int | None = None
 
 
 class ApprovalOut(BaseModel):
@@ -150,9 +157,22 @@ async def get_conversation(
         .where(NovaToolExecution.conversation_id == convo.id)
         .order_by(NovaToolExecution.created_at)
     )
+    messages = list(messages)
+    ratings = dict(
+        (
+            await db.execute(
+                select(NovaFeedback.message_id, NovaFeedback.rating).where(
+                    NovaFeedback.user_id == auth.user.id,
+                    NovaFeedback.message_id.in_([m.id for m in messages]),
+                )
+            )
+        ).all()
+    )
     return {
         "conversation": ConversationOut.model_validate(convo, from_attributes=True),
-        "messages": [_message(m) for m in messages],
+        "messages": [
+            _message(m).model_copy(update={"rating": ratings.get(m.id)}) for m in messages
+        ],
         "executions": [_execution(e) for e in executions],
     }
 
@@ -214,6 +234,87 @@ async def decide(
 ):
     approval = await service.decide(db, auth.user, auth.principal, approval_id, payload, meta)
     return (await _approvals_out(db, auth, [approval]))[0]
+
+
+@router.get("/profile", response_model=memory.ProfileOut)
+async def get_profile(
+    auth: AuthContext = Depends(get_auth_context), db: AsyncSession = Depends(get_db)
+):
+    return memory.profile_out(await memory.get_profile(db, auth.user))
+
+
+@router.put("/profile", response_model=memory.ProfileOut)
+async def save_profile(
+    payload: memory.ProfileIn,
+    auth: AuthContext = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
+):
+    return memory.profile_out(await memory.save_profile(db, auth.user, payload))
+
+
+def _memory_out(m) -> memory.MemoryOut:
+    return memory.MemoryOut.model_validate(m, from_attributes=True)
+
+
+@router.get("/memories", response_model=list[memory.MemoryOut])
+async def list_memories(
+    auth: AuthContext = Depends(get_auth_context), db: AsyncSession = Depends(get_db)
+):
+    return [_memory_out(m) for m in await memory.list_memories(db, auth.user)]
+
+
+@router.post("/memories", response_model=memory.MemoryOut, status_code=201)
+async def add_memory(
+    payload: memory.MemoryIn,
+    auth: AuthContext = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
+):
+    note, _ = await memory.add_memory(db, auth.user, payload.content, payload.category, "told")
+    await db.commit()
+    return _memory_out(note)
+
+
+@router.patch("/memories/{memory_id}", response_model=memory.MemoryOut)
+async def update_memory(
+    memory_id: uuid.UUID,
+    payload: memory.MemoryPatch,
+    auth: AuthContext = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
+):
+    return _memory_out(await memory.update_memory(db, auth.user, memory_id, payload))
+
+
+@router.delete("/memories/{memory_id}", status_code=204)
+async def delete_memory(
+    memory_id: uuid.UUID,
+    auth: AuthContext = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    await memory.delete_memory(db, auth.user, memory_id)
+    return Response(status_code=204)
+
+
+@router.delete("/memories", status_code=204)
+async def delete_all_memories(
+    auth: AuthContext = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
+    meta: RequestMeta = Depends(get_request_meta),
+) -> Response:
+    removed = await memory.delete_all(db, auth.user)
+    await service._audit(db, auth.user, "nova.memory.clear", meta, {"removed": removed})
+    await db.commit()
+    return Response(status_code=204)
+
+
+@router.post("/messages/{message_id}/feedback", status_code=204)
+async def feedback(
+    message_id: uuid.UUID,
+    payload: memory.FeedbackIn,
+    auth: AuthContext = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    await memory.record_feedback(db, auth.user, message_id, payload)
+    return Response(status_code=204)
 
 
 @router.get("/usage")

@@ -6,6 +6,8 @@
  * sample data, resets on reload and is never sent anywhere.
  */
 
+import { createExtra } from './demoExtra'
+
 const DEMO_COMPANY = {
   id: 'demo-company',
   name: 'Eranova Technologies (demo)',
@@ -27,6 +29,7 @@ const RESOURCES = {
   document: ACTIONS,
   integration: ACTIONS,
   report: ['read', 'create', 'export', 'manage'],
+  nova: ['manage'],
   content: ['read', 'update', 'approve'],
   user: ['read', 'create', 'update', 'delete', 'manage'],
   role: ['read', 'create', 'update', 'delete', 'manage'],
@@ -1125,10 +1128,23 @@ const routes = [
   ],
 ]
 
+// Phases 3–6 (CRM, delivery, portal, integrations, marketing, support, documents,
+// reports, NOVA). Checked first so they extend the older lead routes.
+const extraRoutes = createExtra({
+  getState: () => state,
+  page,
+  matches,
+  audit,
+  DemoError,
+  personRef: ref,
+  id,
+  now,
+})
+
 /** Resolves like the real API: returns JSON data or throws { status, code, message, details }. */
 export async function demoRequest(method, path, { query = {}, body } = {}) {
   await new Promise((resolve) => setTimeout(resolve, 120))
-  for (const [routeMethod, pattern, handler] of routes) {
+  for (const [routeMethod, pattern, handler] of [...extraRoutes, ...routes]) {
     if (routeMethod !== method) continue
     const match = pattern.exec(path)
     if (match) return structuredClone(handler(match.slice(1), query, body) ?? null)
