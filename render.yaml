@@ -36,3 +36,29 @@ services:
         sync: false
       - key: SESSION_COOKIE_DOMAIN
         sync: false
+      # Integration credentials are added as INTEGRATION_* variables in the dashboard
+      # on both the web service and the worker.
+
+  # Scheduled syncs, uptime checks, reminders and retention. Run exactly one instance.
+  - type: worker
+    name: orbit-worker-staging
+    runtime: python
+    rootDir: backend
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.worker
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: ENVIRONMENT
+        value: staging
+      - key: DATABASE_URL
+        fromDatabase:
+          name: orbit-db-staging
+          property: connectionString
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: orbit-api-staging
+          envVarKey: SECRET_KEY

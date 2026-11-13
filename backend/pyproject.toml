@@ -21,6 +21,8 @@ known-third-party = ["alembic"]
 "tests/**" = ["S101", "S105", "S106"]
 # Dev tooling that runs the bundled PostgreSQL binaries with fixed arguments.
 "scripts/**" = ["S603", "S607", "S608"]
+# Adapters hold public token-endpoint URLs and help text, never secret values.
+"app/integrations/*.py" = ["S105"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -22,7 +22,7 @@ Open http://localhost:5173. Sign-in is bypassed (you are a demo Super Admin) and
 in-memory sample data, labelled by a banner. Nothing is saved. See
 [ADR 0010](docs/adr/0010-frontend-demo-preview.md).
 
-## Current status: Phase 1 (Foundation, Core) and Phase 2 (Public marketplace)
+## Current status: Phases 1–4 (Foundation, Marketplace, Operations, Integrations)
 
 | Area | Delivered |
 | --- | --- |
@@ -35,12 +35,19 @@ in-memory sample data, labelled by a banner. Nothing is saved. See
 | Public marketplace | Home, product catalogue with search/category filter, product pages (features, pricing), pricing page, CMS-managed pages, contact and demo forms |
 | Website content | Staff editor with drafts and approval-gated publishing; products publish only when confirmed, public-status and described |
 | Leads | Every valid enquiry creates or updates a lead (consent + privacy-notice version, UTM attribution, spam protection); staff lead list and detail |
+| CRM | Configurable pipeline stages and board, activities timeline, lead → customer conversion, customers with contacts and product subscriptions, CSV exports |
+| Delivery work | Projects, members, milestones, tasks with subtasks, dependencies, comments, links and a review workflow (no self-approval); project-scoped access |
+| Employee portal | My work, leave requests with approvals, transparent self check-in attendance, in-app notifications |
+| Integrations | Connect live products (Orbit product API), GitHub, Vercel, Google Analytics 4 and uptime monitors; signed webhooks, sync history, freshness and failure states; secrets stay in `INTEGRATION_*` environment variables |
+| Monitoring and analytics | Uptime, latency, TLS expiry and deployments kept separate from marketing analytics; every number shows its source and last update |
+| Worker | `python -m app.worker`: scheduled syncs, follow-up and task reminders, retention |
 | Audit | Append-only audit log (database trigger blocks UPDATE/DELETE/TRUNCATE) for sign-ins, denials and every privileged change |
 | Delivery | Docker-free local PostgreSQL and one-command dev runner, CI workflow, Render blueprint, Vercel config, ADRs and operations docs |
 
-Full CRM (pipelines, activities, customers), projects, marketing, analytics, support,
-finance and NOVA arrive in later phases (see the phase list in the master brief). The
-navigation only shows modules that exist.
+Marketing campaigns, support, documents, reports, finance and NOVA arrive in later phases
+(see the phase list in the master brief). The navigation only shows modules that exist.
+To connect your existing live products, follow the
+[product integration contract](docs/integrations/product-api-contract.md).
 
 > Before launch: write and legally review the privacy notice, then publish it from
 > **Website → Privacy notice** (Kenya Data Protection Act).
@@ -182,3 +189,4 @@ is done in the app under **Administration → Users**.
 - [Architecture decision records](docs/adr/)
 - [Deployment and environments](docs/operations/deployment.md)
 - [API reference](docs/api/README.md)
+- [Product integration contract](docs/integrations/product-api-contract.md)

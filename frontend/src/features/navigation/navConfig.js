@@ -1,4 +1,6 @@
 import {
+  Activity,
+  BarChart3,
   Boxes,
   Briefcase,
   Building,
@@ -7,6 +9,7 @@ import {
   Inbox,
   LayoutDashboard,
   ListChecks,
+  Plug,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -36,6 +39,24 @@ export const NAV_SECTIONS = [
       { to: '/app/leads', label: 'Leads', icon: Inbox, permission: 'lead.read' },
       { to: '/app/customers', label: 'Customers', icon: Building, permission: 'customer.read' },
       { to: '/app/website', label: 'Website', icon: Globe, permission: 'content.read' },
+      { to: '/app/analytics', label: 'Analytics', icon: BarChart3, permission: 'product.read' },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      {
+        to: '/app/monitoring',
+        label: 'Monitoring',
+        icon: Activity,
+        permission: 'integration.read',
+      },
+      {
+        to: '/app/integrations',
+        label: 'Integrations',
+        icon: Plug,
+        permission: 'integration.read',
+      },
     ],
   },
   {

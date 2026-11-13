@@ -5,7 +5,8 @@
  *  1. starts the local PostgreSQL (backend/scripts/dev_db.py, no Docker)
  *  2. creates backend/.env with a random local SECRET_KEY if it does not exist
  *  3. applies migrations and bootstraps roles/permissions
- *  4. runs the API (http://localhost:8000) and the web app (http://localhost:5173)
+ *  4. runs the API (http://localhost:8000), the background worker and the web app
+ *     (http://localhost:5173)
  *
  * Sign-in is skipped locally (DEV_AUTO_LOGIN=true for this process only).
  * Press Ctrl+C to stop the API and web app; the database keeps running
@@ -92,4 +93,5 @@ run(
   backend,
   devEnv,
 )
+run('Worker', python, ['-m', 'app.worker'], backend, { ENVIRONMENT: 'local' })
 run('Web app', 'npm', ['run', 'dev'], frontend)

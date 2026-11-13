@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/form-controls'
 import { Input, Label } from '@/components/ui/input'
 import { ErrorState, LoadingState, Skeleton } from '@/components/ui/states'
 import { useMe } from '@/features/auth/hooks'
+import { ProductOperationsCard } from '@/features/integrations/ProductOperationsCard'
 import { formatDateTime } from '@/lib/utils'
 import {
   useAddProductMember,
@@ -423,6 +424,7 @@ export function ProductDetailPage() {
         </div>
 
         <div className="space-y-4">
+          <ProductOperationsCard productId={product.id} timeZone={timeZone} />
           <PublishingCard product={product} />
           {product.can_update && (
             <Card>

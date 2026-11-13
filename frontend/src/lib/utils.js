@@ -13,3 +13,9 @@ export function formatDateTime(value, timeZone) {
     timeZone,
   }).format(new Date(value))
 }
+
+export function formatNumber(value) {
+  return typeof value === 'number'
+    ? value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+    : '—'
+}

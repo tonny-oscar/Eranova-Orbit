@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import date
+from urllib.parse import urlsplit
 
 from sqlalchemy import ColumnElement, case, false, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -740,16 +741,25 @@ async def remove_dependency(session, actor, principal, task_id, depends_on_id) -
     await session.commit()
 
 
-async def add_link(
-    session, actor, principal, task_id, payload: LinkIn, external_ref: str | None = None
-) -> TaskLink:
+def github_ref(url: str) -> str | None:
+    """github.com/<owner>/<repo>/pull/<n> or /issues/<n> -> "owner/repo#n" for webhook matching."""
+    parts = urlsplit(url)
+    if parts.hostname != "github.com":
+        return None
+    segments = [s for s in parts.path.split("/") if s]
+    if len(segments) >= 4 and segments[2] in ("pull", "issues") and segments[3].isdigit():
+        return f"{segments[0]}/{segments[1]}#{segments[3]}"
+    return None
+
+
+async def add_link(session, actor, principal, task_id, payload: LinkIn) -> TaskLink:
     task, _project = await get_task(session, principal, task_id)
     link = TaskLink(
         task_id=task.id,
         kind=payload.kind,
         url=payload.url,
         title=payload.title,
-        external_ref=external_ref,
+        external_ref=github_ref(payload.url),
         created_by_user_id=actor.id if actor else None,
     )
     session.add(link)

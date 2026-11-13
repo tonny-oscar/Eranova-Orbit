@@ -9,6 +9,7 @@ import app.modules.company.models
 import app.modules.content.models
 import app.modules.crm.models
 import app.modules.identity.models
+import app.modules.integrations.models
 import app.modules.notifications.models
 import app.modules.people.models
 import app.modules.products.models

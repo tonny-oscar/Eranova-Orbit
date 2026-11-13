@@ -149,6 +149,31 @@ export const routes = [
                 lazy: page(() => import('@/features/team/EmployeePage'), 'EmployeePage'),
               },
               {
+                path: 'integrations',
+                lazy: page(
+                  () => import('@/features/integrations/IntegrationsPage'),
+                  'IntegrationsPage',
+                ),
+              },
+              {
+                path: 'integrations/:integrationId',
+                lazy: page(
+                  () => import('@/features/integrations/IntegrationDetailPage'),
+                  'IntegrationDetailPage',
+                ),
+              },
+              {
+                path: 'monitoring',
+                lazy: page(
+                  () => import('@/features/integrations/MonitoringPage'),
+                  'MonitoringPage',
+                ),
+              },
+              {
+                path: 'analytics',
+                lazy: page(() => import('@/features/integrations/AnalyticsPage'), 'AnalyticsPage'),
+              },
+              {
                 path: 'settings/profile',
                 lazy: page(() => import('@/features/settings/ProfilePage'), 'ProfilePage'),
               },

@@ -7,6 +7,7 @@ from app.modules.crm.router import router as crm_router
 from app.modules.dashboard.router import router as dashboard_router
 from app.modules.identity.router import router as auth_router
 from app.modules.identity.users_router import router as users_router
+from app.modules.integrations.router import router as integrations_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.people.portal import router as portal_router
 from app.modules.people.router import router as people_router
@@ -25,6 +26,7 @@ api_router.include_router(people_router)
 api_router.include_router(work_router)
 api_router.include_router(portal_router)
 api_router.include_router(notifications_router)
+api_router.include_router(integrations_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(authorization_router)
 api_router.include_router(audit_router)
