@@ -140,7 +140,7 @@ async def test_last_active_super_admin_cannot_be_removed(client, make_user, db, 
     assert blocked.json()["error"]["code"] == "last_super_admin"
 
 
-async def test_scopes_for_unbuilt_modules_are_rejected(client, make_user, db):
+async def test_scope_targets_must_exist(client, make_user, db):
     await make_user("root@eranova.co.ke", role="super_admin")
     target = await make_user("pm@eranova.co.ke")
     csrf = await login(client, "root@eranova.co.ke")
@@ -154,7 +154,7 @@ async def test_scopes_for_unbuilt_modules_are_rejected(client, make_user, db):
         headers={"X-CSRF-Token": csrf},
     )
     assert response.status_code == 400
-    assert response.json()["error"]["code"] == "scope_not_available"
+    assert response.json()["error"]["code"] == "invalid_scope"
 
 
 async def test_user_without_user_read_cannot_list_users(client, make_user):

@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from enum import StrEnum
 
 from sqlalchemy import CheckConstraint, Date, ForeignKey, String, UniqueConstraint
@@ -63,3 +63,51 @@ class EmployeeProfile(TimestampMixin, Base):
     )
     employment_type: Mapped[str] = mapped_column(String(20), default=EmploymentType.FULL_TIME)
     start_date: Mapped[date | None] = mapped_column(Date)
+
+
+class LeaveRequest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "leave_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "type IN ('annual', 'sick', 'parental', 'unpaid', 'other')", name="type_valid"
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected', 'cancelled')", name="status_valid"
+        ),
+        CheckConstraint("end_date >= start_date", name="dates_ordered"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("companies.id", ondelete="RESTRICT"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    type: Mapped[str] = mapped_column(String(20))
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date] = mapped_column(Date)
+    reason: Mapped[str] = mapped_column(String(1000), default="")
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    decided_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    decided_at: Mapped[datetime | None]
+    decision_note: Mapped[str | None] = mapped_column(String(1000))
+
+
+class AttendanceRecord(UUIDPrimaryKeyMixin, Base):
+    """Self-reported check-in/out only. No location, device or activity tracking."""
+
+    __tablename__ = "attendance_records"
+    __table_args__ = (UniqueConstraint("user_id", "work_date"),)
+
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("companies.id", ondelete="RESTRICT"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    work_date: Mapped[date] = mapped_column(Date)
+    check_in_at: Mapped[datetime]
+    check_out_at: Mapped[datetime | None]
+    note: Mapped[str | None] = mapped_column(String(300))

@@ -32,6 +32,8 @@ SQLAlchemy==2.1.8
 starlette==1.10.0
 typing-inspection==0.4.5
 typing_extensions==4.16.0
+# IANA time zones for zoneinfo (Windows and slim Linux images have none built in).
+tzdata==2026.6
 uvicorn==0.54.0
 watchfiles==1.3.0
 websockets==17.4
