@@ -30,6 +30,7 @@ from app.modules.authorization.service import (
     sync_permission_catalogue,
 )
 from app.modules.company.service import ensure_company
+from app.modules.crm.pipeline import ensure_stages
 from app.modules.identity.service import (
     create_user,
     purge_expired_records,
@@ -94,6 +95,7 @@ async def bootstrap(session: AsyncSession) -> None:
     company = await ensure_company(session, settings)
     permissions = await sync_permission_catalogue(session)
     roles = await ensure_starter_roles(session, company, permissions)
+    await ensure_stages(session, company.id)
     await session.commit()
     print(
         f"Bootstrap complete: company '{company.slug}', "

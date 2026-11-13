@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.modules.crm.models import EnquiryType, LeadPriority, LeadStatus
+from app.modules.crm.models import EnquiryType, LeadPriority
 
 
 class Attribution(BaseModel):
@@ -93,11 +93,38 @@ class LeadDetail(LeadSummary):
     currency: str | None
     marketing_consent: bool
     enquiries: list[EnquiryOut]
+    activities: list = []
+    converted_customer: ProductRef | None = None
+    converted_at: datetime | None = None
     can_update: bool = False
+    can_convert: bool = False
+
+
+class LeadCreate(BaseModel):
+    full_name: str = Field(min_length=2, max_length=200)
+    email: EmailStr
+    organization: str | None = Field(default=None, max_length=200)
+    phone: str | None = Field(default=None, max_length=40, pattern=r"^[0-9+()\-\s]*$")
+    product_id: uuid.UUID | None = None
+    source: str = Field(default="manual", max_length=40)
+    priority: LeadPriority = LeadPriority.MEDIUM
+    expected_value: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
+    currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+    notes: str = Field(default="", max_length=10_000)
+    next_follow_up: date | None = None
+    owner_user_id: uuid.UUID | None = None
+
+
+class LeadConvert(BaseModel):
+    """Convert into an existing customer, or create one named ``customer_name``."""
+
+    customer_id: uuid.UUID | None = None
+    customer_name: str | None = Field(default=None, min_length=2, max_length=200)
+    account_manager_user_id: uuid.UUID | None = None
 
 
 class LeadUpdate(BaseModel):
-    status: LeadStatus | None = None
+    status: str | None = Field(default=None, max_length=30)
     priority: LeadPriority | None = None
     owner_user_id: uuid.UUID | None = None
     notes: str | None = Field(default=None, max_length=10_000)

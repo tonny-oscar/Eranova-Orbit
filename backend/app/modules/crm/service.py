@@ -7,15 +7,28 @@ from sqlalchemy import ColumnElement, false, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.errors import AppError, NotFoundError, PermissionDeniedError, RateLimitedError
+from app.core.errors import (
+    AppError,
+    ConflictError,
+    NotFoundError,
+    PermissionDeniedError,
+    RateLimitedError,
+)
 from app.core.request_meta import RequestMeta
 from app.db.base import utc_now
 from app.modules.audit.models import ActorType, AuditOutcome
 from app.modules.audit.service import record_event
 from app.modules.authorization.policy import Principal, ResourceContext, is_allowed, scope_filter
 from app.modules.company.service import get_company_by_slug
-from app.modules.crm.models import Enquiry, Lead, LeadStatus
-from app.modules.crm.schemas import EnquiryIn, LeadUpdate
+from app.modules.crm.customers import (
+    ensure_not_duplicate,
+    find_existing_customer,
+    get_customer,
+    log_activity,
+)
+from app.modules.crm.models import Contact, Customer, CustomerProduct, Enquiry, Lead
+from app.modules.crm.pipeline import stage_keys, won_stage
+from app.modules.crm.schemas import EnquiryIn, LeadConvert, LeadCreate, LeadUpdate
 from app.modules.identity.models import User, UserStatus
 from app.modules.products.models import Product
 from app.modules.products.service import escape_like, public_conditions
@@ -94,7 +107,7 @@ async def submit_enquiry(
             product_id=product_id,
             full_name=payload.full_name.strip(),
             source=f"website_{payload.type}",
-            status=LeadStatus.NEW,
+            status=next(iter(await stage_keys(session, company.id))),
         )
         session.add(lead)
     lead.full_name = payload.full_name.strip()
@@ -174,7 +187,7 @@ async def list_leads(
     principal: Principal,
     *,
     q: str | None,
-    status: LeadStatus | None,
+    status: str | None,
     product_id: uuid.UUID | None,
     limit: int,
     offset: int,
@@ -239,6 +252,8 @@ async def update_lead(
     for field in ("status", "priority"):
         if field in changes and changes[field] is None:
             raise AppError(f"'{field}' cannot be empty.", code="invalid_field")
+    if "status" in changes and changes["status"] not in await stage_keys(session, actor.company_id):
+        raise AppError("Unknown pipeline stage.", code="invalid_stage")
     if changes.get("owner_user_id"):
         owner = await session.scalar(
             select(User).where(
@@ -271,6 +286,182 @@ async def update_lead(
         )
         await session.commit()
         await session.refresh(lead)
+    return lead
+
+
+async def create_lead(
+    session: AsyncSession,
+    *,
+    actor: User,
+    principal: Principal,
+    payload: LeadCreate,
+    meta: RequestMeta,
+) -> Lead:
+    context = ResourceContext(
+        company_id=actor.company_id,
+        product_ids=frozenset({payload.product_id}) if payload.product_id else frozenset(),
+        owner_user_id=payload.owner_user_id or actor.id,
+    )
+    if not is_allowed(principal, "lead.create", context):
+        raise PermissionDeniedError("You cannot create leads here.")
+    email = payload.email.strip().lower()
+    duplicate = await session.scalar(
+        select(Lead.id).where(
+            Lead.company_id == actor.company_id,
+            Lead.email == email,
+            Lead.product_id.is_(None)
+            if payload.product_id is None
+            else Lead.product_id == payload.product_id,
+        )
+    )
+    if duplicate:
+        raise ConflictError(
+            "A lead with this email already exists for this product.",
+            code="duplicate_lead",
+            details=[{"field": "email", "message": str(duplicate)}],
+        )
+    if payload.product_id and not await session.scalar(
+        select(Product.id).where(
+            Product.id == payload.product_id, Product.company_id == actor.company_id
+        )
+    ):
+        raise AppError("Product not found.", code="invalid_product")
+    stages = await stage_keys(session, actor.company_id)
+    lead = Lead(
+        company_id=actor.company_id,
+        **payload.model_dump(exclude={"email", "owner_user_id"}),
+        email=email,
+        owner_user_id=payload.owner_user_id or actor.id,
+        status=next(iter(stages)),
+    )
+    session.add(lead)
+    await session.flush()
+    await record_event(
+        session,
+        action="lead.create",
+        outcome=AuditOutcome.SUCCESS,
+        actor_user_id=actor.id,
+        company_id=actor.company_id,
+        resource_type="lead",
+        resource_id=lead.id,
+        meta=meta,
+        details={"source": lead.source},
+    )
+    await session.commit()
+    await session.refresh(lead)
+    return lead
+
+
+async def add_lead_activity(
+    session: AsyncSession,
+    *,
+    actor: User,
+    principal: Principal,
+    lead_id: uuid.UUID,
+    payload,
+    meta: RequestMeta,
+) -> None:
+    lead = await get_lead(session, principal, lead_id)
+    if not is_allowed(principal, "lead.update", lead_context(lead)):
+        raise PermissionDeniedError("You cannot add activity to this lead.")
+    activity = await log_activity(
+        session, actor, company_id=actor.company_id, payload=payload, lead_id=lead.id
+    )
+    await record_event(
+        session,
+        action="lead.activity.add",
+        outcome=AuditOutcome.SUCCESS,
+        actor_user_id=actor.id,
+        company_id=actor.company_id,
+        resource_type="lead",
+        resource_id=lead.id,
+        meta=meta,
+        details={"activity_id": str(activity.id), "type": activity.type},
+    )
+    await session.commit()
+
+
+async def convert_lead(
+    session: AsyncSession,
+    *,
+    actor: User,
+    principal: Principal,
+    lead_id: uuid.UUID,
+    payload: LeadConvert,
+    meta: RequestMeta,
+) -> Lead:
+    """Turn a lead into a customer. The lead, its enquiries and activities are kept
+    and linked to the customer, so no history is lost."""
+    lead = await get_lead(session, principal, lead_id)
+    if not is_allowed(principal, "lead.update", lead_context(lead)):
+        raise PermissionDeniedError("You cannot convert this lead.")
+    if lead.converted_customer_id:
+        raise ConflictError("This lead has already been converted.", code="already_converted")
+
+    if payload.customer_id:
+        customer = await get_customer(session, principal, payload.customer_id, "customer.update")
+    else:
+        if not is_allowed(
+            principal, "customer.create", ResourceContext(company_id=actor.company_id)
+        ):
+            raise PermissionDeniedError("Creating customers requires company-wide access.")
+        name = (payload.customer_name or lead.organization or lead.full_name).strip()
+        ensure_not_duplicate(await find_existing_customer(session, actor.company_id, name), name)
+        customer = Customer(
+            company_id=actor.company_id,
+            name=name,
+            email=lead.email if not lead.organization else None,
+            phone=lead.phone,
+            status="active",
+            account_manager_user_id=payload.account_manager_user_id or lead.owner_user_id,
+            created_by_user_id=actor.id,
+        )
+        session.add(customer)
+        await session.flush()
+
+    session.add(
+        Contact(
+            customer_id=customer.id,
+            full_name=lead.full_name,
+            email=lead.email,
+            phone=lead.phone,
+            is_primary=not await session.scalar(
+                select(func.count()).select_from(Contact).where(Contact.customer_id == customer.id)
+            ),
+        )
+    )
+    if lead.product_id:
+        existing = await session.scalar(
+            select(CustomerProduct.id).where(
+                CustomerProduct.customer_id == customer.id,
+                CustomerProduct.product_id == lead.product_id,
+            )
+        )
+        if not existing:
+            session.add(
+                CustomerProduct(
+                    customer_id=customer.id,
+                    product_id=lead.product_id,
+                    status="active",
+                    start_date=utc_now().date(),
+                )
+            )
+    lead.status = (await won_stage(session, actor.company_id)).key
+    lead.converted_customer_id = customer.id
+    lead.converted_at = utc_now()
+    await record_event(
+        session,
+        action="lead.convert",
+        outcome=AuditOutcome.SUCCESS,
+        actor_user_id=actor.id,
+        company_id=actor.company_id,
+        resource_type="lead",
+        resource_id=lead.id,
+        meta=meta,
+        details={"customer_id": str(customer.id)},
+    )
+    await session.commit()
+    await session.refresh(lead)
     return lead
 
 
