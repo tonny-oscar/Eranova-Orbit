@@ -4,6 +4,9 @@ import { afterEach, vi } from 'vitest'
 
 configure({ asyncUtilTimeout: 5000 })
 
+// jsdom does not implement scrolling.
+window.scrollTo = () => {}
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()

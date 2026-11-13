@@ -1,5 +1,7 @@
 import {
   Boxes,
+  Globe,
+  Inbox,
   LayoutDashboard,
   ScrollText,
   Settings,
@@ -21,6 +23,8 @@ export const NAV_SECTIONS = [
     items: [
       { to: '/app', label: 'Overview', icon: LayoutDashboard, end: true },
       { to: '/app/products', label: 'Products', icon: Boxes, permission: 'product.read' },
+      { to: '/app/leads', label: 'Leads', icon: Inbox, permission: 'lead.read' },
+      { to: '/app/website', label: 'Website', icon: Globe, permission: 'content.read' },
       { to: '/app/team', label: 'Team', icon: UsersRound, permission: 'employee.read' },
     ],
   },

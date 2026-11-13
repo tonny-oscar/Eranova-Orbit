@@ -4,7 +4,9 @@ import { Link, useParams } from 'react-router'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Alert } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { ConfirmButton } from '@/components/ui/confirm-button'
 import { Select } from '@/components/ui/form-controls'
 import { Input, Label } from '@/components/ui/input'
 import { ErrorState, LoadingState, Skeleton } from '@/components/ui/states'
@@ -17,6 +19,7 @@ import {
   useProductHistory,
   useProductMembers,
   useRemoveProductMember,
+  useSetProductPublished,
   useUserOptions,
 } from './api'
 import { ANALYTICS_SOURCES, LIFECYCLE_STATUSES, PRICING_INTERVALS } from './constants'
@@ -88,6 +91,88 @@ function StatusChanger({ product }) {
         </Button>
       </div>
     </form>
+  )
+}
+
+const PUBLIC_STATUSES = ['beta', 'live', 'maintenance']
+
+function PublishingCard({ product }) {
+  const publish = useSetProductPublished(product.id)
+  const blockers = [
+    !product.details_confirmed && 'Details must be confirmed by the product owner.',
+    !PUBLIC_STATUSES.includes(product.lifecycle_status) &&
+      'Status must be beta, live or maintenance.',
+    !product.description?.trim() && 'Add a description.',
+  ].filter(Boolean)
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Marketplace</CardTitle>
+        <CardDescription>Whether this product appears on the public website.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          {product.is_public ? (
+            <Badge variant="success">Public</Badge>
+          ) : product.is_published ? (
+            <Badge variant="warning">Published but hidden</Badge>
+          ) : (
+            <Badge>Not published</Badge>
+          )}
+          {product.is_public && (
+            <a
+              href={`/products/${product.slug}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-accent hover:underline"
+            >
+              View public page <ExternalLink className="size-3" aria-hidden="true" />
+            </a>
+          )}
+        </div>
+        {product.is_published && !product.is_public && (
+          <p className="text-sm text-muted-foreground">It is hidden until: {blockers.join(' ')}</p>
+        )}
+        {publish.isError && (
+          <Alert variant="error" title={publish.error.message}>
+            {publish.error.details?.map((d) => d.message).join(' ')}
+          </Alert>
+        )}
+        {product.can_publish ? (
+          product.is_published ? (
+            <ConfirmButton
+              confirmLabel="Confirm unpublish"
+              loading={publish.isPending}
+              onConfirm={() => publish.mutate(false)}
+            >
+              Unpublish
+            </ConfirmButton>
+          ) : (
+            <>
+              {blockers.length > 0 && (
+                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                  {blockers.map((b) => (
+                    <li key={b}>{b}</li>
+                  ))}
+                </ul>
+              )}
+              <Button
+                variant="accent"
+                size="sm"
+                disabled={blockers.length > 0}
+                loading={publish.isPending}
+                onClick={() => publish.mutate(true)}
+              >
+                Publish to website
+              </Button>
+            </>
+          )
+        ) : (
+          <p className="text-xs text-muted-foreground">Publishing requires approval rights.</p>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -338,6 +423,7 @@ export function ProductDetailPage() {
         </div>
 
         <div className="space-y-4">
+          <PublishingCard product={product} />
           {product.can_update && (
             <Card>
               <CardHeader>

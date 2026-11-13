@@ -42,6 +42,14 @@ const schema = z.object({
   analytics_property_id: optionalText(120),
   launch_date: z.string(),
   details_confirmed: z.boolean(),
+  features: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1, { message: 'Name the feature.' }).max(80),
+        description: optionalText(300),
+      }),
+    )
+    .max(20),
   pricing: z
     .array(
       z.object({
@@ -84,6 +92,10 @@ function toFormValues(product) {
     analytics_property_id: text(product?.analytics_property_id),
     launch_date: text(product?.launch_date),
     details_confirmed: product?.details_confirmed ?? false,
+    features: (product?.features ?? []).map((f) => ({
+      title: text(f.title),
+      description: text(f.description),
+    })),
     pricing: (product?.pricing ?? []).map((plan) => ({
       name: text(plan.name),
       amount: text(plan.amount),
@@ -95,7 +107,7 @@ function toFormValues(product) {
 }
 
 function toPayload(values, { isEdit }) {
-  const { lifecycle_status, pricing, ...rest } = values
+  const { lifecycle_status, pricing, features, ...rest } = values
   const payload = Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, nullable(v)]))
   payload.name = values.name.trim()
   payload.description = values.description
@@ -106,6 +118,10 @@ function toPayload(values, { isEdit }) {
     currency: nullable(plan.currency),
     interval: nullable(plan.interval),
     notes: nullable(plan.notes),
+  }))
+  payload.features = features.map((f) => ({
+    title: f.title.trim(),
+    description: nullable(f.description.trim()),
   }))
   if (!isEdit) payload.lifecycle_status = lifecycle_status
   return payload
@@ -135,6 +151,7 @@ export function ProductForm({ product, onSubmit, submitting, serverError, submit
     formState: { errors },
   } = useForm({ resolver: zodResolver(schema), defaultValues: toFormValues(product) })
   const pricing = useFieldArray({ control, name: 'pricing' })
+  const features = useFieldArray({ control, name: 'features' })
 
   useEffect(() => {
     for (const detail of serverError?.details ?? []) {
@@ -291,6 +308,65 @@ export function ProductForm({ product, onSubmit, submitting, serverError, submit
           >
             <Input id="analytics_property_id" {...register('analytics_property_id')} />
           </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Features</CardTitle>
+          <CardDescription>
+            Shown on the public product page. List only features that exist today.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {features.fields.length === 0 && (
+            <p className="text-sm text-muted-foreground">No features listed.</p>
+          )}
+          {features.fields.map((field, index) => {
+            const featureErrors = errors.features?.[index] ?? {}
+            return (
+              <fieldset
+                key={field.id}
+                className="grid gap-3 rounded-lg border p-3 md:grid-cols-[1fr_2fr_auto]"
+              >
+                <legend className="sr-only">Feature {index + 1}</legend>
+                <Field
+                  id={`feature-${index}-title`}
+                  label="Feature"
+                  error={featureErrors.title?.message}
+                >
+                  <Input id={`feature-${index}-title`} {...register(`features.${index}.title`)} />
+                </Field>
+                <Field
+                  id={`feature-${index}-description`}
+                  label="Short description"
+                  error={featureErrors.description?.message}
+                >
+                  <Input
+                    id={`feature-${index}-description`}
+                    {...register(`features.${index}.description`)}
+                  />
+                </Field>
+                <div className="flex items-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => features.remove(index)}
+                    aria-label={`Remove feature ${index + 1}`}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </div>
+              </fieldset>
+            )
+          })}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => features.append({ title: '', description: '' })}
+          >
+            <Plus aria-hidden="true" /> Add feature
+          </Button>
         </CardContent>
       </Card>
 

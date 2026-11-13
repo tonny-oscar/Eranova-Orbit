@@ -27,6 +27,7 @@ const RESOURCES = {
   document: ACTIONS,
   integration: ACTIONS,
   report: ['read', 'create', 'export', 'manage'],
+  content: ['read', 'update', 'approve'],
   user: ['read', 'create', 'update', 'delete', 'manage'],
   role: ['read', 'create', 'update', 'delete', 'manage'],
   audit_log: ['read', 'export'],
@@ -158,9 +159,97 @@ function makeState() {
     analytics_property_id: null,
     launch_date: null,
     pricing: [],
+    features: [],
+    is_published: false,
+    published_at: null,
     created_at: now(),
     updated_at: now(),
   }))
+
+  // Clearly fictional product so the public marketplace can be previewed.
+  products.push({
+    ...products[0],
+    id: 'p-sample',
+    name: 'Sample App (demo)',
+    slug: 'sample-app',
+    category: 'Sample category',
+    tagline: 'Sample tagline for the demo preview.',
+    description:
+      'This is sample content shown only in the demo preview. It does not describe a real Eranova product.',
+    lifecycle_status: 'live',
+    details_confirmed: true,
+    is_published: true,
+    published_at: now(),
+    features: [
+      { title: 'Sample feature one', description: 'Placeholder text for the preview.' },
+      { title: 'Sample feature two', description: null },
+    ],
+    pricing: [{ name: 'Sample plan', amount: '1000.00', currency: 'KES', interval: 'monthly' }],
+  })
+
+  const pages = {
+    about: {
+      draft: {
+        title: 'About (sample page)',
+        summary: 'Sample page content for the demo preview.',
+        sections: [
+          { heading: 'Sample section', body: 'Replace this with real content in Website.' },
+        ],
+        seo_description: '',
+      },
+      publish: true,
+    },
+  }
+  const contentPages = Object.fromEntries(
+    Object.entries(pages).map(([slug, p]) => [
+      slug,
+      {
+        draft: p.draft,
+        published: p.publish ? { ...p.draft } : null,
+        published_at: p.publish ? now() : null,
+        updated_at: now(),
+      },
+    ]),
+  )
+
+  const leads = [
+    {
+      id: 'l-sample',
+      full_name: 'Sample Lead (demo)',
+      organization: 'Sample Organisation',
+      email: 'lead@demo.local',
+      phone: null,
+      product_id: 'p-sample',
+      source: 'website_demo',
+      status: 'new',
+      priority: 'medium',
+      owner_user_id: null,
+      next_follow_up: null,
+      expected_value: null,
+      currency: null,
+      notes: '',
+      marketing_consent: false,
+      last_enquiry_at: now(),
+      created_at: now(),
+      enquiries: [
+        {
+          id: 'q-sample',
+          type: 'demo',
+          message: 'Sample enquiry message for the demo preview.',
+          preferred_date: null,
+          consent_privacy: true,
+          consent_marketing: false,
+          privacy_notice_version: '2026-11-draft',
+          utm_source: 'demo',
+          utm_medium: null,
+          utm_campaign: null,
+          referrer: null,
+          landing_page: '/products/sample-app',
+          created_at: now(),
+        },
+      ],
+    },
+  ]
 
   const history = Object.fromEntries(
     products.map((p) => [
@@ -189,8 +278,23 @@ function makeState() {
     history,
     members: {},
     audit: [],
+    contentPages,
+    leads,
   }
 }
+
+const PAGE_LABELS = {
+  home: 'Home',
+  solutions: 'Solutions',
+  pricing: 'Pricing',
+  resources: 'Resources',
+  about: 'About',
+  careers: 'Careers',
+  contact: 'Contact',
+  support: 'Support',
+  privacy: 'Privacy notice',
+}
+const PUBLIC_STATUSES = ['beta', 'live', 'maintenance']
 
 let state = makeState()
 
@@ -258,8 +362,85 @@ const roleOut = (r) => ({
   assignment_count: state.assignments.filter((a) => a.role_id === r.id).length,
 })
 
+const isPublic = (p) =>
+  p.is_published && p.details_confirmed && PUBLIC_STATUSES.includes(p.lifecycle_status)
+
 function productOut(p) {
-  return { ...p, owner: ref(userById(p.owner_user_id)), can_update: true, can_manage: true }
+  return {
+    ...p,
+    owner: ref(userById(p.owner_user_id)),
+    is_public: isPublic(p),
+    can_update: true,
+    can_manage: true,
+    can_publish: true,
+  }
+}
+
+function publicProduct(p) {
+  const fields = [
+    'name',
+    'slug',
+    'category',
+    'tagline',
+    'description',
+    'lifecycle_status',
+    'logo_url',
+    'website_url',
+    'docs_url',
+    'status_page_url',
+    'support_email',
+    'features',
+    'pricing',
+  ]
+  return Object.fromEntries(fields.map((f) => [f, p[f]]))
+}
+
+function pageAdmin(slug) {
+  const page = state.contentPages[slug]
+  const draft = page?.draft ?? {
+    title: PAGE_LABELS[slug],
+    summary: '',
+    sections: [],
+    seo_description: '',
+  }
+  const published = page?.published ?? null
+  return {
+    slug,
+    label: PAGE_LABELS[slug],
+    draft,
+    published,
+    published_at: page?.published_at ?? null,
+    has_unpublished_changes: Boolean(page) && JSON.stringify(published) !== JSON.stringify(draft),
+    updated_at: page?.updated_at ?? null,
+    can_edit: true,
+    can_publish: true,
+  }
+}
+
+function findPageSlug(slug) {
+  if (!PAGE_LABELS[slug]) throw new DemoError(404, 'not_found', 'Page not found.')
+  return slug
+}
+
+function leadSummary(lead) {
+  const product = state.products.find((p) => p.id === lead.product_id)
+  // eslint-disable-next-line no-unused-vars
+  const { enquiries, owner_user_id, product_id, ...rest } = lead
+  return {
+    ...rest,
+    product: product ? { id: product.id, name: product.name } : null,
+    owner: ref(userById(owner_user_id)),
+  }
+}
+
+function leadDetail(lead) {
+  return { ...leadSummary(lead), enquiries: lead.enquiries, can_update: true }
+}
+
+function findLead(lid) {
+  const lead = state.leads.find((l) => l.id === lid)
+  if (!lead) throw new DemoError(404, 'not_found', 'Lead not found.')
+  return lead
 }
 
 function userDetail(u) {
@@ -498,6 +679,33 @@ const routes = [
       return productOut(product)
     },
   ],
+  [
+    'POST',
+    /^\/api\/v1\/products\/([^/]+)\/(publish|unpublish)$/,
+    ([pid, action]) => {
+      const product = findProduct(pid)
+      if (action === 'publish') {
+        const problems = [
+          !product.details_confirmed && 'Confirm the product details first.',
+          !PUBLIC_STATUSES.includes(product.lifecycle_status) &&
+            'Only beta, live or maintenance products can be published.',
+          !product.description?.trim() && 'Add a description before publishing.',
+        ].filter(Boolean)
+        if (problems.length) {
+          throw new DemoError(
+            400,
+            'not_publishable',
+            'This product is not ready to publish.',
+            problems.map((message) => ({ field: 'is_published', message })),
+          )
+        }
+      }
+      product.is_published = action === 'publish'
+      product.published_at = product.is_published ? now() : null
+      audit(`product.${action}`, 'product', pid)
+      return productOut(product)
+    },
+  ],
   ['GET', /^\/api\/v1\/products\/([^/]+)\/status-history$/, ([pid]) => state.history[pid] ?? []],
   ['GET', /^\/api\/v1\/products\/([^/]+)\/members$/, ([pid]) => state.members[pid] ?? []],
   [
@@ -653,6 +861,198 @@ const routes = [
       state.roles = state.roles.filter((r) => r.id !== rid)
       audit('role.delete', 'role', rid)
       return null
+    },
+  ],
+
+  // Public marketplace
+  [
+    'GET',
+    /^\/api\/v1\/public\/site$/,
+    () => ({
+      company_name: DEMO_COMPANY.name,
+      published_pages: Object.entries(state.contentPages)
+        .filter(([, p]) => p.published_at)
+        .map(([slug]) => slug),
+      categories: [
+        ...new Set(
+          state.products
+            .filter(isPublic)
+            .map((p) => p.category)
+            .filter(Boolean),
+        ),
+      ],
+      privacy_notice_version: '2026-11-draft',
+    }),
+  ],
+  [
+    'GET',
+    /^\/api\/v1\/public\/products$/,
+    (_m, q) =>
+      state.products
+        .filter(isPublic)
+        .filter((p) => matches(q.q, p.name, p.tagline, p.category))
+        .filter((p) => !q.category || p.category?.toLowerCase() === q.category.toLowerCase())
+        .map(publicProduct),
+  ],
+  [
+    'GET',
+    /^\/api\/v1\/public\/products\/([^/]+)$/,
+    ([slug]) => {
+      const product = state.products.find((p) => p.slug === slug && isPublic(p))
+      if (!product) throw new DemoError(404, 'not_found', 'Product not found.')
+      return publicProduct(product)
+    },
+  ],
+  [
+    'GET',
+    /^\/api\/v1\/public\/pages\/([^/]+)$/,
+    ([slug]) => {
+      const page = state.contentPages[slug]
+      if (!page?.published_at) throw new DemoError(404, 'not_found', 'Page not found.')
+      return { slug, ...page.published, published_at: page.published_at }
+    },
+  ],
+  [
+    'POST',
+    /^\/api\/v1\/public\/enquiries$/,
+    (_m, _q, body) => {
+      const email = body.email.toLowerCase()
+      const product = state.products.find((p) => p.slug === body.product_slug && isPublic(p))
+      let lead = state.leads.find(
+        (l) => l.email === email && l.product_id === (product?.id ?? null),
+      )
+      if (!lead) {
+        lead = {
+          id: id('l'),
+          email,
+          product_id: product?.id ?? null,
+          source: `website_${body.type}`,
+          status: 'new',
+          priority: 'medium',
+          owner_user_id: null,
+          next_follow_up: null,
+          expected_value: null,
+          currency: null,
+          notes: '',
+          created_at: now(),
+          enquiries: [],
+        }
+        state.leads.unshift(lead)
+      }
+      Object.assign(lead, {
+        full_name: body.full_name,
+        organization: body.organization ?? lead.organization ?? null,
+        phone: body.phone ?? lead.phone ?? null,
+        marketing_consent: body.consent_marketing,
+        last_enquiry_at: now(),
+      })
+      lead.enquiries.unshift({
+        id: id('q'),
+        type: body.type,
+        message: body.message,
+        preferred_date: body.preferred_date,
+        consent_privacy: body.consent_privacy,
+        consent_marketing: body.consent_marketing,
+        privacy_notice_version: '2026-11-draft',
+        utm_source: body.attribution?.utm_source ?? null,
+        utm_medium: body.attribution?.utm_medium ?? null,
+        utm_campaign: body.attribution?.utm_campaign ?? null,
+        referrer: body.attribution?.referrer ?? null,
+        landing_page: body.attribution?.landing_page ?? null,
+        created_at: now(),
+      })
+      audit('lead.create', 'lead', lead.id)
+      return {
+        status: 'received',
+        message: 'Thank you. Our team will get back to you. (Demo preview: saved in memory only.)',
+      }
+    },
+  ],
+
+  // Website content
+  [
+    'GET',
+    /^\/api\/v1\/content\/pages$/,
+    () =>
+      Object.keys(PAGE_LABELS).map((slug) => {
+        const admin = pageAdmin(slug)
+        return {
+          slug,
+          label: admin.label,
+          is_published: Boolean(admin.published_at),
+          has_unpublished_changes: admin.has_unpublished_changes,
+          published_at: admin.published_at,
+          updated_at: admin.updated_at,
+        }
+      }),
+  ],
+  ['GET', /^\/api\/v1\/content\/pages\/([^/]+)$/, ([slug]) => pageAdmin(findPageSlug(slug))],
+  [
+    'PUT',
+    /^\/api\/v1\/content\/pages\/([^/]+)$/,
+    ([slug], _q, body) => {
+      findPageSlug(slug)
+      const page = state.contentPages[slug] ?? { published: null, published_at: null }
+      page.draft = {
+        title: body.title,
+        summary: body.summary ?? '',
+        sections: (body.sections ?? []).filter((s) => s.heading.trim() || s.body.trim()),
+        seo_description: body.seo_description ?? '',
+      }
+      page.updated_at = now()
+      state.contentPages[slug] = page
+      audit('content.draft.save', 'content_page', slug)
+      return pageAdmin(slug)
+    },
+  ],
+  [
+    'POST',
+    /^\/api\/v1\/content\/pages\/([^/]+)\/(publish|unpublish)$/,
+    ([slug, action]) => {
+      findPageSlug(slug)
+      const page = state.contentPages[slug]
+      if (action === 'publish') {
+        if (!page)
+          throw new DemoError(
+            400,
+            'not_publishable',
+            'Add a title and some content before publishing.',
+          )
+        page.published = { ...page.draft }
+        page.published_at = now()
+      } else if (page) {
+        page.published_at = null
+        page.published = null
+      }
+      if (page) page.updated_at = now()
+      audit(`content.${action}`, 'content_page', slug)
+      return pageAdmin(slug)
+    },
+  ],
+
+  // Leads
+  [
+    'GET',
+    /^\/api\/v1\/leads$/,
+    (_m, q) =>
+      page(
+        state.leads
+          .filter((l) => matches(q.q, l.full_name, l.email, l.organization))
+          .filter((l) => !q.status || l.status === q.status)
+          .filter((l) => !q.product_id || l.product_id === q.product_id)
+          .map(leadSummary),
+        q,
+      ),
+  ],
+  ['GET', /^\/api\/v1\/leads\/([^/]+)$/, ([lid]) => leadDetail(findLead(lid))],
+  [
+    'PATCH',
+    /^\/api\/v1\/leads\/([^/]+)$/,
+    ([lid], _q, body) => {
+      const lead = findLead(lid)
+      Object.assign(lead, body)
+      audit('lead.update', 'lead', lid)
+      return leadDetail(lead)
     },
   ],
 

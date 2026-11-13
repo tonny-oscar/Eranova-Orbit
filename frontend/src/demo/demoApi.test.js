@@ -20,11 +20,34 @@ describe('demo preview API', () => {
 
   it('serves launch products as unconfirmed drafts without invented details', async () => {
     const page = await demoRequest('GET', '/api/v1/products')
-    expect(page.total).toBe(5)
-    expect(page.items.every((p) => p.lifecycle_status === 'draft' && !p.details_confirmed)).toBe(
-      true,
-    )
-    expect(page.items.every((p) => p.description === '' && p.pricing.length === 0)).toBe(true)
+    const launch = page.items.filter((p) => p.id !== 'p-sample')
+    expect(launch).toHaveLength(5)
+    expect(launch.every((p) => p.lifecycle_status === 'draft' && !p.details_confirmed)).toBe(true)
+    expect(launch.every((p) => p.description === '' && p.pricing.length === 0)).toBe(true)
+  })
+
+  it('only exposes the clearly labelled sample product publicly', async () => {
+    const products = await demoRequest('GET', '/api/v1/public/products')
+    expect(products.map((p) => p.name)).toEqual(['Sample App (demo)'])
+    expect(products[0]).not.toHaveProperty('owner')
+  })
+
+  it('turns a public enquiry into a lead', async () => {
+    await demoRequest('POST', '/api/v1/public/enquiries', {
+      body: {
+        type: 'contact',
+        full_name: 'Visitor',
+        email: 'Visitor@Example.com',
+        message: 'Hello there team',
+        consent_privacy: true,
+        consent_marketing: false,
+        product_slug: 'sample-app',
+        attribution: { utm_source: 'test' },
+      },
+    })
+    const leads = await demoRequest('GET', '/api/v1/leads', { query: { q: 'visitor' } })
+    expect(leads.items[0].email).toBe('visitor@example.com')
+    expect(leads.items[0].product.name).toBe('Sample App (demo)')
   })
 
   it('keeps changes in memory and records them in the audit list', async () => {

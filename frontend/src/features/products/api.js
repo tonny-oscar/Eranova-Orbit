@@ -74,6 +74,14 @@ export function useChangeProductStatus(id) {
   )
 }
 
+export function useSetProductPublished(id) {
+  return useProductMutation(
+    (published) =>
+      apiRequest(`${BASE}/${id}/${published ? 'publish' : 'unpublish'}`, { method: 'POST' }),
+    () => [['products', 'list'], ['public']],
+  )
+}
+
 export function useAddProductMember(id) {
   return useProductMutation(
     (payload) => apiRequest(`${BASE}/${id}/members`, { method: 'POST', body: payload }),
