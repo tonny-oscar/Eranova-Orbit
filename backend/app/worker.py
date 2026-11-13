@@ -21,8 +21,10 @@ from app.db.base import utc_now
 from app.db.session import dispose_engine, get_sessionmaker
 from app.modules.crm.models import Lead
 from app.modules.integrations import service as integration_service
+from app.modules.marketing import service as marketing_service
 from app.modules.notifications.models import Notification
 from app.modules.notifications.service import notify
+from app.modules.reports import service as report_service
 from app.modules.work.models import Task
 from app.modules.work.service import OPEN_STATUSES
 
@@ -110,6 +112,36 @@ async def task_due_reminders(session) -> None:
                 link=link,
             )
     await session.commit()
+
+
+@job
+async def scheduled_content_reminders(session) -> None:
+    """Without a connected publishing provider nothing is auto-published, so
+    remind the author when a scheduled slot passes unconfirmed."""
+    for item in await marketing_service.overdue_scheduled(session):
+        if not item.author_user_id:
+            continue
+        link = f"/app/marketing/content/{item.id}"
+        if not await _already_notified(session, item.author_user_id, "content.publish_due", link):
+            await notify(
+                session,
+                company_id=item.company_id,
+                user_ids=[item.author_user_id],
+                kind="content.publish_due",
+                title=f"Scheduled time passed: {item.title}",
+                body="Publish it and record the link, or reschedule.",
+                link=link,
+            )
+    await session.commit()
+
+
+@job
+async def scheduled_reports(session) -> None:
+    for schedule in await report_service.due_schedules(session):
+        delivered = await report_service.run_schedule(session, schedule)
+        logger.info(
+            "scheduled report delivered", extra={"schedule": schedule.name, "recipients": delivered}
+        )
 
 
 @job

@@ -4,11 +4,15 @@ import {
   Boxes,
   Briefcase,
   Building,
+  FileBarChart,
   FolderKanban,
+  FolderOpen,
   Globe,
   Inbox,
   LayoutDashboard,
+  LifeBuoy,
   ListChecks,
+  Megaphone,
   Plug,
   ScrollText,
   Settings,
@@ -30,6 +34,8 @@ export const NAV_SECTIONS = [
     items: [
       { to: '/app', label: 'Overview', icon: LayoutDashboard, end: true },
       { to: '/app/me', label: 'My work', icon: Briefcase },
+      { to: '/app/reports', label: 'Reports', icon: FileBarChart, permission: 'report.read' },
+      { to: '/app/documents', label: 'Documents', icon: FolderOpen, permission: 'document.read' },
     ],
   },
   {
@@ -38,6 +44,13 @@ export const NAV_SECTIONS = [
       { to: '/app/products', label: 'Products', icon: Boxes, permission: 'product.read' },
       { to: '/app/leads', label: 'Leads', icon: Inbox, permission: 'lead.read' },
       { to: '/app/customers', label: 'Customers', icon: Building, permission: 'customer.read' },
+      { to: '/app/support', label: 'Support', icon: LifeBuoy, permission: 'ticket.read' },
+    ],
+  },
+  {
+    label: 'Growth',
+    items: [
+      { to: '/app/marketing', label: 'Marketing', icon: Megaphone, permission: 'campaign.read' },
       { to: '/app/website', label: 'Website', icon: Globe, permission: 'content.read' },
       { to: '/app/analytics', label: 'Analytics', icon: BarChart3, permission: 'product.read' },
     ],

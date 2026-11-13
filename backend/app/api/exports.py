@@ -5,6 +5,7 @@ import csv
 import io
 from collections.abc import Iterable, Sequence
 from datetime import date, datetime
+from decimal import Decimal
 
 from fastapi import Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,12 +31,56 @@ def _cell(value: object) -> str:
     return f"'{text}" if text.startswith(_FORMULA_PREFIXES) else text
 
 
+def _xlsx_cell(value: object) -> object:
+    if isinstance(value, bool) or value is None:
+        return "" if value is None else str(value)
+    if isinstance(value, int | float | Decimal):
+        return value
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None) if value.tzinfo else value
+    if isinstance(value, date):
+        return value
+    return _cell(value)
+
+
+def xlsx_response(
+    filename: str, sheets: Sequence[tuple[str, Sequence[str], Iterable[Sequence[object]]]]
+) -> Response:
+    """One worksheet per (title, header, rows). Text never becomes a formula."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    used: set[str] = set()
+    for title, header, rows in sheets:
+        name = "".join(ch for ch in title if ch not in "[]:*?/\\")[:28] or "Sheet"
+        base, n = name, 2
+        while name in used:
+            name, n = f"{base[:25]} {n}", n + 1
+        used.add(name)
+        sheet = workbook.create_sheet(name)
+        sheet.append([_cell(h) for h in header])
+        for cell in sheet[1]:
+            cell.font = Font(bold=True)
+        for row in rows:
+            sheet.append([_xlsx_cell(v) for v in row])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 def csv_response(
     filename: str, header: Sequence[str], rows: Iterable[Sequence[object]]
 ) -> Response:
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(header)
+    if header:
+        writer.writerow(header)
     for row in rows:
         writer.writerow([_cell(v) for v in row])
     return Response(

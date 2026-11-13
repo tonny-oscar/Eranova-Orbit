@@ -22,7 +22,7 @@ Open http://localhost:5173. Sign-in is bypassed (you are a demo Super Admin) and
 in-memory sample data, labelled by a banner. Nothing is saved. See
 [ADR 0010](docs/adr/0010-frontend-demo-preview.md).
 
-## Current status: Phases 1–4 (Foundation, Marketplace, Operations, Integrations)
+## Current status: Phases 1–5 (Foundation, Marketplace, Operations, Integrations, Marketing/Support/Reports)
 
 | Area | Delivered |
 | --- | --- |
@@ -40,12 +40,16 @@ in-memory sample data, labelled by a banner. Nothing is saved. See
 | Employee portal | My work, leave requests with approvals, transparent self check-in attendance, in-app notifications |
 | Integrations | Connect live products (Orbit product API), GitHub, Vercel, Google Analytics 4 and uptime monitors; signed webhooks, sync history, freshness and failure states; secrets stay in `INTEGRATION_*` environment variables |
 | Monitoring and analytics | Uptime, latency, TLS expiry and deployments kept separate from marketing analytics; every number shows its source and last update |
-| Worker | `python -m app.worker`: scheduled syncs, follow-up and task reminders, retention |
+| Marketing | Campaigns (budget, channels, dates, results with sources), content studio with review and approval (no self-approval), content calendar; "published" only when confirmed with a link |
+| Support | Tickets T-1001… linked to products and customers, full lifecycle, replies, internal notes, history, response and resolution metrics |
+| Documents | Versioned document centre with type-checked uploads, scoped or restricted access, audited downloads |
+| Reports | Executive, sales, support, delivery, marketing, traffic, product and people reports from live data; Excel/CSV export; scheduled in-app delivery generated with each recipient's own access |
+| Worker | `python -m app.worker`: scheduled syncs, follow-up, task and publishing reminders, scheduled reports, retention |
 | Audit | Append-only audit log (database trigger blocks UPDATE/DELETE/TRUNCATE) for sign-ins, denials and every privileged change |
 | Delivery | Docker-free local PostgreSQL and one-command dev runner, CI workflow, Render blueprint, Vercel config, ADRs and operations docs |
 
-Marketing campaigns, support, documents, reports, finance and NOVA arrive in later phases
-(see the phase list in the master brief). The navigation only shows modules that exist.
+NOVA (the AI assistant) and finance arrive in the next phases (see the phase list in the
+master brief). The navigation only shows modules that exist.
 To connect your existing live products, follow the
 [product integration contract](docs/integrations/product-api-contract.md).
 

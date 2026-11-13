@@ -149,6 +149,66 @@ export const routes = [
                 lazy: page(() => import('@/features/team/EmployeePage'), 'EmployeePage'),
               },
               {
+                path: 'marketing',
+                lazy: page(() => import('@/features/marketing/CampaignsPage'), 'CampaignsPage'),
+              },
+              {
+                path: 'marketing/campaigns/:campaignId',
+                lazy: page(
+                  () => import('@/features/marketing/CampaignDetailPage'),
+                  'CampaignDetailPage',
+                ),
+              },
+              {
+                path: 'marketing/content',
+                lazy: page(
+                  () => import('@/features/marketing/ContentStudioPage'),
+                  'ContentStudioPage',
+                ),
+              },
+              {
+                path: 'marketing/content/:contentId',
+                lazy: page(
+                  () => import('@/features/marketing/ContentDetailPage'),
+                  'ContentDetailPage',
+                ),
+              },
+              {
+                path: 'marketing/calendar',
+                lazy: page(() => import('@/features/marketing/CalendarPage'), 'CalendarPage'),
+              },
+              {
+                path: 'support',
+                lazy: page(() => import('@/features/support/SupportPage'), 'SupportPage'),
+              },
+              {
+                path: 'support/:ticketId',
+                lazy: page(() => import('@/features/support/TicketDetailPage'), 'TicketDetailPage'),
+              },
+              {
+                path: 'documents',
+                lazy: page(() => import('@/features/documents/DocumentsPage'), 'DocumentsPage'),
+              },
+              {
+                path: 'documents/:documentId',
+                lazy: page(
+                  () => import('@/features/documents/DocumentDetailPage'),
+                  'DocumentDetailPage',
+                ),
+              },
+              {
+                path: 'reports',
+                lazy: page(() => import('@/features/reports/ReportsPage'), 'ReportsPage'),
+              },
+              {
+                path: 'reports/runs/:runId',
+                lazy: page(() => import('@/features/reports/ReportViewPage'), 'ReportRunPage'),
+              },
+              {
+                path: 'reports/:reportKey',
+                lazy: page(() => import('@/features/reports/ReportViewPage'), 'ReportViewPage'),
+              },
+              {
                 path: 'integrations',
                 lazy: page(
                   () => import('@/features/integrations/IntegrationsPage'),

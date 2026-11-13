@@ -15,3 +15,5 @@ Supersede an ADR with a new one rather than rewriting history.
 | [0008](0008-administrator-issued-temporary-passwords.md) | Administrator-issued temporary passwords | Accepted |
 | [0009](0009-marketplace-publishing-and-enquiries.md) | Marketplace publishing and enquiry handling | Accepted |
 | [0010](0010-frontend-demo-preview.md) | Frontend demo preview mode | Accepted |
+| [0011](0011-integrations-and-secret-references.md) | Integrations, secret references and the worker | Accepted |
+| [0012](0012-documents-stored-in-postgres.md) | Document files stored in PostgreSQL | Accepted |

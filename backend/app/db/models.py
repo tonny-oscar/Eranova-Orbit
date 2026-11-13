@@ -8,11 +8,15 @@ import app.modules.authorization.models
 import app.modules.company.models
 import app.modules.content.models
 import app.modules.crm.models
+import app.modules.documents.models
 import app.modules.identity.models
 import app.modules.integrations.models
+import app.modules.marketing.models
 import app.modules.notifications.models
 import app.modules.people.models
 import app.modules.products.models
+import app.modules.reports.models
+import app.modules.support.models
 import app.modules.work.models  # noqa: F401
 from app.db.base import Base
 
