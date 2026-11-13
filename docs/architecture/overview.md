@@ -30,6 +30,9 @@ Browser ── Vercel (static React app) ──HTTPS── Render: FastAPI (uvic
 | `products` | Product registry, lifecycle history, team roster, product-scope validator | `products`, `product_members`, `product_status_history` |
 | `people` | Departments, minimal employee work profiles, department-scope validator | `departments`, `employee_profiles` |
 | `dashboard` | Live executive summary and global search (no tables; reads other modules) | — |
+| `content` | Public website pages with draft and published copies | `content_pages` |
+| `crm` | Leads and website enquiries (consent, attribution, spam limits) | `leads`, `enquiries` |
+| `public` | Unauthenticated marketplace API (no tables; published data only) | — |
 
 `app/modules/scopes.py` registers which module validates each role scope type
 (product → `products`, department → `people`). Project scope stays unavailable until the
@@ -70,6 +73,16 @@ primitives), `app/db` (declarative base, naming conventions, engine/session),
 | `PUT /employees/{user_id}` | `employee.update` (current and target department) | Manager loop prevention, audited |
 | `GET /departments` | `employee.read` | With head and member counts |
 | `POST /departments`, `PATCH /departments/{id}` | `employee.manage` (company) | Audited |
+| `POST /products/{id}/publish`, `/unpublish` | `product.approve` | Publish requires confirmed details, public status and a description |
+| `GET /content/pages`, `GET /content/pages/{slug}` | `content.read` | Draft, published copy and unpublished-changes flag |
+| `PUT /content/pages/{slug}` | `content.update` (company) | Saves draft only |
+| `POST /content/pages/{slug}/publish`, `/unpublish` | `content.approve` (company) | Copies draft to live / takes page down |
+| `GET /leads`, `GET /leads/{id}` | `lead.read` | Company, product or own scope; detail includes enquiry history |
+| `PATCH /leads/{id}` | `lead.update` | Status, priority, owner, follow-up, notes; audited (notes text not logged) |
+| `GET /public/site` | public | Company name, published pages, categories, privacy notice version |
+| `GET /public/products`, `GET /public/products/{slug}` | public | Public products only; cached 60 s |
+| `GET /public/pages/{slug}` | public | Published copy only |
+| `POST /public/enquiries` | public | Creates/updates a lead; consent required; honeypot, timing and rate limits |
 | `GET /dashboard/summary` | session | Sections included only when permitted; `generated_at` and `source` |
 | `GET /search?q=` | session | Products and people within scope; min 2 characters |
 
@@ -89,6 +102,11 @@ All errors use `{"error": {"code", "message", "details", "correlation_id"}}`.
 | `features/team/` | People directory, departments, work profiles |
 | `features/admin/` | Users (create, disable, reset, roles), role editor, audit log |
 | `features/search/` | Header global search combobox |
+| `features/public/` | Public marketplace: home, catalogue, product, pricing, CMS pages, enquiry forms, attribution capture |
+| `features/website/` | Staff website editor (draft, publish) |
+| `features/leads/` | Lead list and detail with enquiry history |
+| `layouts/PublicLayout.jsx` | Public header, navigation and footer |
+| `demo/` | In-memory API for `npm run dev:demo` (never in production builds) |
 | `features/settings/` | Profile and password change (also the forced first-sign-in screen) |
 | `layouts/AppLayout.jsx` | Collapsible sidebar, mobile drawer, header with search, skip link |
 

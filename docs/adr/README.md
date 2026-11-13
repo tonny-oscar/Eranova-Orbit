@@ -13,3 +13,5 @@ Supersede an ADR with a new one rather than rewriting history.
 | [0006](0006-reference-data-bootstrap.md) | Reference data via idempotent bootstrap | Accepted |
 | [0007](0007-product-registry-and-team-roster.md) | Product registry, team roster and product-scoped access | Accepted |
 | [0008](0008-administrator-issued-temporary-passwords.md) | Administrator-issued temporary passwords | Accepted |
+| [0009](0009-marketplace-publishing-and-enquiries.md) | Marketplace publishing and enquiry handling | Accepted |
+| [0010](0010-frontend-demo-preview.md) | Frontend demo preview mode | Accepted |

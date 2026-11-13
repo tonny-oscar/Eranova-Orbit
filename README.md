@@ -11,7 +11,18 @@ The authoritative requirements are in [`docs/requirements/`](docs/requirements/)
 - [Master engineering brief](docs/requirements/ERANOVA_ORBIT_MASTER_PROMPT.md)
 - [Technical architecture](docs/requirements/ERANOVA_ORBIT_TECHNICAL_ARCHITECTURE.md)
 
-## Current status: Phase 1 — Foundation and Core Orbit
+## Quick look without a database (demo preview)
+
+```powershell
+npm install
+npm run dev:demo
+```
+
+Open http://localhost:5173. Sign-in is bypassed (you are a demo Super Admin) and all data is
+in-memory sample data, labelled by a banner. Nothing is saved. See
+[ADR 0010](docs/adr/0010-frontend-demo-preview.md).
+
+## Current status: Phase 1 (Foundation, Core) and Phase 2 (Public marketplace)
 
 | Area | Delivered |
 | --- | --- |
@@ -21,11 +32,18 @@ The authoritative requirements are in [`docs/requirements/`](docs/requirements/)
 | Product registry | Register and edit products, lifecycle status with history, team roster, product-scoped access, "awaiting confirmation" labelling for unverified details |
 | People | User administration (create, disable, reset), departments, minimal work profiles (department, title, manager, employment type, start date) |
 | Command centre | Live permission-scoped overview (products, people, accounts, recent activity) with source and timestamp, global search (Ctrl/⌘+K) |
+| Public marketplace | Home, product catalogue with search/category filter, product pages (features, pricing), pricing page, CMS-managed pages, contact and demo forms |
+| Website content | Staff editor with drafts and approval-gated publishing; products publish only when confirmed, public-status and described |
+| Leads | Every valid enquiry creates or updates a lead (consent + privacy-notice version, UTM attribution, spam protection); staff lead list and detail |
 | Audit | Append-only audit log (database trigger blocks UPDATE/DELETE/TRUNCATE) for sign-ins, denials and every privileged change |
 | Delivery | Docker Compose PostgreSQL, CI workflow, Render blueprint, Vercel config, ADRs and operations docs |
 
-CRM, projects, marketing, analytics, support, finance and NOVA arrive in later phases (see
-the phase list in the master brief). The navigation only shows modules that exist.
+Full CRM (pipelines, activities, customers), projects, marketing, analytics, support,
+finance and NOVA arrive in later phases (see the phase list in the master brief). The
+navigation only shows modules that exist.
+
+> Before launch: write and legally review the privacy notice, then publish it from
+> **Website → Privacy notice** (Kenya Data Protection Act).
 
 ## Repository layout
 
