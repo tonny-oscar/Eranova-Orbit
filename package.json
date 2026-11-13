@@ -5,6 +5,7 @@
   "scripts": {
     "postinstall": "npm --prefix frontend install",
     "dev": "npm --prefix frontend run dev",
+    "dev:demo": "npm --prefix frontend run dev:demo",
     "build": "npm --prefix frontend run build",
     "preview": "npm --prefix frontend run preview",
     "lint": "npm --prefix frontend run lint",

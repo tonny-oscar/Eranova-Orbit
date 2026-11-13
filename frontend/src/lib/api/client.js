@@ -1,6 +1,10 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
+// `npm run dev:demo` only. Both values are build-time constants, so production
+// bundles drop the demo code entirely and always talk to the real API.
+export const DEMO_MODE = import.meta.env.DEV && import.meta.env.MODE === 'demo'
+
 // Held in memory only; restored from /auth/me after a reload. The session
 // cookie itself is HttpOnly and never readable from JavaScript.
 let csrfToken = null
@@ -20,7 +24,26 @@ export class ApiError extends Error {
   }
 }
 
+async function demoApiRequest(path, method, body, query) {
+  const { demoRequest } = await import('@/demo/demoApi')
+  const cleanQuery = Object.fromEntries(
+    Object.entries(query ?? {}).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+  )
+  try {
+    return await demoRequest(method, path, { query: cleanQuery, body })
+  } catch (error) {
+    throw new ApiError({
+      status: error.status ?? 500,
+      code: error.code ?? 'demo_error',
+      message: error.message,
+      details: error.details ?? [],
+    })
+  }
+}
+
 export async function apiRequest(path, { method = 'GET', body, query, signal } = {}) {
+  if (DEMO_MODE) return demoApiRequest(path, method, body, query)
+
   const headers = { Accept: 'application/json' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (!SAFE_METHODS.has(method) && csrfToken) headers['X-CSRF-Token'] = csrfToken
